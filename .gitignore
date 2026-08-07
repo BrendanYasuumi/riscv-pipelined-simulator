@@ -1,0 +1,8 @@
+# Compiled Executables
+*.exe
+*.out
+simulator
+emulator
+
+# VS Code settings
+.vscode/
