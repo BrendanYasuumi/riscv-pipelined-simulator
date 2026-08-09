@@ -145,6 +145,105 @@ and `rs2` in stable bit positions so the hardware decoder can be simple.
 Immediate fields are split differently by format because each instruction type
 spends its 32 bits on different operands.
 
+## Pipeline Registers
+
+```text
+ControlSignals:
+    reg_write
+    mem_read
+    mem_write
+    branch
+    jump
+    alu_src_imm
+    alu_op
+    writeback_source
+```
+
+Control signals are the decoded "intent" of an instruction. For example, an
+`add` instruction enables register writeback but does not read or write memory.
+A `sw` instruction writes memory but does not write a destination register.
+
+```text
+IF/ID latch:
+    valid
+    pc
+    instruction
+```
+
+The fetch stage writes this latch. The decode stage reads it on the next cycle.
+
+```text
+ID/EX latch:
+    valid
+    pc
+    instruction
+    format
+    rd
+    rs1
+    rs2
+    funct3
+    funct7
+    immediate
+    rs1_value
+    rs2_value
+    control
+```
+
+The decode stage writes this latch after reading the register file and
+generating control signals. The execute stage reads it on the next cycle.
+
+```text
+EX/MEM latch:
+    valid
+    pc
+    instruction
+    rd
+    alu_result
+    store_value
+    branch_target
+    branch_taken
+    memory_cycles_remaining
+    control
+```
+
+The execute stage writes this latch after running the ALU or computing a branch
+target. The memory stage reads it on the next cycle.
+
+```text
+MEM/WB latch:
+    valid
+    pc
+    instruction
+    rd
+    alu_result
+    memory_data
+    pc_plus_4
+    immediate
+    control
+```
+
+The memory stage writes this latch after loads or stores finish. The writeback
+stage reads it on the next cycle.
+
+```text
+commit_pipeline_registers():
+    IF/ID  = next IF/ID
+    ID/EX  = next ID/EX
+    EX/MEM = next EX/MEM
+    MEM/WB = next MEM/WB
+
+clear_next_pipeline_registers():
+    next IF/ID  = empty bubble
+    next ID/EX  = empty bubble
+    next EX/MEM = empty bubble
+    next MEM/WB = empty bubble
+```
+
+Hardware rationale: a latch separates two stages. During one cycle, each stage
+reads the current latch and computes the next latch. At the clock edge, all
+next latches become current together. A `valid = false` latch is a bubble, which
+means no real instruction occupies that stage.
+
 ## Cycle Accounting
 
 ```text
