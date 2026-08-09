@@ -1,6 +1,7 @@
 # Compiled Executables
 *.exe
 *.out
+/out
 simulator
 emulator
 

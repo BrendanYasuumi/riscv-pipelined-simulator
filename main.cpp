@@ -1,86 +1,91 @@
-#include <iostream>
-#include <vector>
+#include <array>
 #include <cstdint>
 #include <iomanip>
+#include <iostream>
+#include <string_view>
 
-struct CPU {
-    uint32_t regs[32] = {0};     // 32 general-purpose registers (x0 to x31)
-    uint32_t pc = 0;             // Program Counter
-    std::vector<uint8_t> memory; // Virtual RAM
+#include "cpu.hpp"
+#include "pipeline_registers.hpp"
+#include "stages.hpp"
 
-    CPU(size_t mem_size) : memory(mem_size, 0) {}
+namespace {
 
-    void write_reg(int reg, uint32_t val) {
-        if (reg != 0) regs[reg] = val;
-    }
-
-    uint32_t read_reg(int reg) const {
-        if (reg == 0) return 0;
-        return regs[reg];
-    }
+struct DemoInstruction {
+    uint32_t encoding;
+    std::string_view assembly;
 };
 
-// 1. FETCH: Reconstructs 4 bytes into a single 32-bit instruction (Little-Endian)
-uint32_t fetch(const CPU& cpu) {
-    return static_cast<uint32_t>(cpu.memory[cpu.pc])       |
-          (static_cast<uint32_t>(cpu.memory[cpu.pc + 1]) << 8)  |
-          (static_cast<uint32_t>(cpu.memory[cpu.pc + 2]) << 16) |
-          (static_cast<uint32_t>(cpu.memory[cpu.pc + 3]) << 24);
+constexpr std::array<DemoInstruction, 5> kDemoProgram{{
+    {0x00500093u, "addi x1, x0, 5"},
+    {0x00700113u, "addi x2, x0, 7"},
+    {0x00000013u, "nop"},
+    {0x00000013u, "nop"},
+    {0x002081B3u, "add x3, x1, x2"},
+}};
+
+void load_demo_program(rv32i::CPU& cpu) {
+    uint32_t address = 0;
+
+    for (const DemoInstruction& instruction : kDemoProgram) {
+        cpu.write_u32(address, instruction.encoding);
+        address += sizeof(uint32_t);
+    }
+
+    cpu.set_pc(0);
 }
 
-// 2. DECODE & EXECUTE
-void decode_and_execute(CPU& cpu, uint32_t inst) {
-    uint32_t opcode = inst & 0x7F;
-    uint32_t rd     = (inst >> 7) & 0x1F;
-    uint32_t funct3 = (inst >> 12) & 0x7;
-    uint32_t rs1    = (inst >> 15) & 0x1F;
-    uint32_t rs2    = (inst >> 20) & 0x1F;
-    uint32_t funct7 = (inst >> 25) & 0x7F;
+void print_demo_program() {
+    std::cout << "Loaded demo program:\n";
 
-    std::cout << "--- Decoded Fields ---" << std::endl;
-    std::cout << "Opcode: 0x" << std::hex << opcode << " (Base 10: " << std::dec << opcode << ")" << std::endl;
-    std::cout << "rd:     x" << rd << std::endl;
-    std::cout << "rs1:    x" << rs1 << std::endl;
-    std::cout << "rs2:    x" << rs2 << std::endl;
-    std::cout << "funct3: 0x" << std::hex << funct3 << std::endl;
-    std::cout << "funct7: 0x" << std::hex << funct7 << std::dec << std::endl;
-
-    // Check if opcode matches R-Type (0x33)
-    if (opcode == 0x33) {
-        uint32_t val1 = cpu.read_reg(rs1);
-        uint32_t val2 = cpu.read_reg(rs2);
-
-        if (funct3 == 0x0 && funct7 == 0x00) { // ADD
-            uint32_t result = val1 + val2;
-            cpu.write_reg(rd, result);
-            std::cout << "\n[EXECUTE] ADD x" << rd << ", x" << rs1 << ", x" << rs2 << std::endl;
-            std::cout << "Result: " << val1 << " + " << val2 << " = " << result << " saved to x" << rd << std::endl;
-        }
+    uint32_t address = 0;
+    for (const DemoInstruction& instruction : kDemoProgram) {
+        std::cout << "  0x" << std::hex << std::setw(8) << std::setfill('0')
+                  << address << ": 0x" << std::setw(8) << instruction.encoding
+                  << std::dec << std::setfill(' ') << "    "
+                  << instruction.assembly << '\n';
+        address += sizeof(uint32_t);
     }
 }
 
+void print_registers(const rv32i::CPU& cpu) {
+    std::cout << "\nArchitectural registers:\n";
+    std::cout << "  x1 = " << cpu.read_reg(1) << '\n';
+    std::cout << "  x2 = " << cpu.read_reg(2) << '\n';
+    std::cout << "  x3 = " << cpu.read_reg(3) << '\n';
+}
+
+void print_stats(const rv32i::CPU& cpu) {
+    const rv32i::ExecutionStats& stats = cpu.stats();
+
+    std::cout << "\nExecution stats:\n";
+    std::cout << "  Total cycles:          " << stats.clock_cycles << '\n';
+    std::cout << "  Instructions retired:  " << stats.instruction_count << '\n';
+    std::cout << "  CPI:                   " << stats.cpi() << '\n';
+    std::cout << "  IPC:                   " << stats.ipc() << '\n';
+    std::cout << "  Stall cycles:          " << stats.stall_cycles << '\n';
+    std::cout << "  Branch mispredictions: " << stats.branch_mispredictions
+              << '\n';
+}
+
+}  // namespace
+
 int main() {
-    CPU cpu(1024);
+    rv32i::Config config{};
+    rv32i::CPU cpu(1024, config);
+    rv32i::PipelineRegisters pipeline{};
 
-    // Pre-load test values into input registers x1 and x2
-    cpu.write_reg(1, 15); // x1 = 15
-    cpu.write_reg(2, 25); // x2 = 25
+    load_demo_program(cpu);
+    print_demo_program();
 
-    // Load the 32-bit machine code for "ADD x3, x1, x2" (0x002081B3) into RAM at address 0 (Little-Endian order)
-    cpu.memory[0] = 0xB3;
-    cpu.memory[1] = 0x81;
-    cpu.memory[2] = 0x20;
-    cpu.memory[3] = 0x00;
+    // Five instructions plus four drain cycles lets the last instruction move
+    // through IF, ID, EX, MEM, and WB in this simple five-stage pipeline.
+    constexpr uint64_t kCyclesToRun = kDemoProgram.size() + 4;
+    for (uint64_t cycle = 0; cycle < kCyclesToRun; ++cycle) {
+        rv32i::run_pipeline_cycle(cpu, pipeline);
+    }
 
-    std::cout << "Initial Register Values:" << std::endl;
-    std::cout << "x1 = " << cpu.read_reg(1) << ", x2 = " << cpu.read_reg(2) << ", x3 = " << cpu.read_reg(3) << "\n\n";
-
-    // Run Fetch -> Decode -> Execute
-    uint32_t instruction = fetch(cpu);
-    decode_and_execute(cpu, instruction);
-
-    std::cout << "\nFinal Register Values:" << std::endl;
-    std::cout << "x1 = " << cpu.read_reg(1) << ", x2 = " << cpu.read_reg(2) << ", x3 = " << cpu.read_reg(3) << std::endl;
+    print_registers(cpu);
+    print_stats(cpu);
 
     return 0;
 }
