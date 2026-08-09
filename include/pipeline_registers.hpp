@@ -36,16 +36,37 @@ enum class WritebackSource {
     Immediate
 };
 
+enum class BranchCondition {
+    None,
+    Equal,
+    NotEqual,
+    LessThan,
+    GreaterOrEqual,
+    LessThanUnsigned,
+    GreaterOrEqualUnsigned
+};
+
+enum class MemoryAccessWidth {
+    None,
+    Byte,
+    HalfWord,
+    Word
+};
+
 struct ControlSignals {
     bool reg_write = false;
     bool mem_read = false;
     bool mem_write = false;
     bool branch = false;
     bool jump = false;
+    bool alu_src_pc = false;
     bool alu_src_imm = false;
+    bool mem_unsigned = false;
 
     ALUOp alu_op = ALUOp::None;
     WritebackSource writeback_source = WritebackSource::None;
+    BranchCondition branch_condition = BranchCondition::None;
+    MemoryAccessWidth memory_width = MemoryAccessWidth::None;
 };
 
 struct IFIDRegister {

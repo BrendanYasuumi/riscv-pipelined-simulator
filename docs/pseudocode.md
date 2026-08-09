@@ -244,6 +244,132 @@ reads the current latch and computes the next latch. At the clock edge, all
 next latches become current together. A `valid = false` latch is a bubble, which
 means no real instruction occupies that stage.
 
+## Instruction Classification and Control
+
+```text
+DecodedInstruction:
+    kind
+    format
+    raw
+    opcode
+    rd
+    rs1
+    rs2
+    funct3
+    funct7
+    immediate
+    control
+```
+
+Instruction classification is the control-unit step. The earlier decoder only
+extracts fields; this step decides what those fields mean.
+
+```text
+decode_instruction(raw):
+    decoded.opcode = raw[6:0]
+    decoded.rd     = raw[11:7]
+    decoded.rs1    = raw[19:15]
+    decoded.rs2    = raw[24:20]
+    decoded.funct3 = raw[14:12]
+    decoded.funct7 = raw[31:25]
+
+    if opcode == R_TYPE:
+        decoded.format = R
+
+        if funct3 == 0 and funct7 == 0x00:
+            decoded.kind = ADD
+            control.reg_write = true
+            control.alu_op = ADD
+            control.writeback_source = ALU
+
+        if funct3 == 0 and funct7 == 0x20:
+            decoded.kind = SUB
+            control.reg_write = true
+            control.alu_op = SUB
+            control.writeback_source = ALU
+```
+
+```text
+    if opcode == I_TYPE_ALU:
+        decoded.format = I
+        decoded.immediate = sign_extend(raw[31:20], 12)
+
+        decoded.kind = ADDI / ANDI / ORI / ...
+        control.reg_write = true
+        control.alu_src_imm = true
+        control.alu_op = operation selected by funct3/funct7
+        control.writeback_source = ALU
+```
+
+```text
+    if opcode == LOAD:
+        decoded.format = I
+        decoded.immediate = sign_extend(raw[31:20], 12)
+
+        decoded.kind = LB / LH / LW / LBU / LHU
+        control.reg_write = true
+        control.mem_read = true
+        control.alu_src_imm = true
+        control.alu_op = ADD
+        control.writeback_source = MEMORY
+        control.memory_width = byte / halfword / word
+        control.mem_unsigned = true for LBU and LHU
+```
+
+```text
+    if opcode == STORE:
+        decoded.format = S
+        decoded.immediate = sign_extend(raw[31:25] concat raw[11:7], 12)
+
+        decoded.kind = SB / SH / SW
+        control.mem_write = true
+        control.alu_src_imm = true
+        control.alu_op = ADD
+        control.memory_width = byte / halfword / word
+```
+
+```text
+    if opcode == BRANCH:
+        decoded.format = B
+        decoded.immediate = sign_extend(reassembled branch offset, 13)
+
+        decoded.kind = BEQ / BNE / BLT / BGE / BLTU / BGEU
+        control.branch = true
+        control.branch_condition = selected comparison
+```
+
+```text
+    if opcode == LUI:
+        decoded.format = U
+        decoded.kind = LUI
+        decoded.immediate = raw[31:12] followed by 12 zero bits
+        control.reg_write = true
+        control.writeback_source = IMMEDIATE
+
+    if opcode == AUIPC:
+        decoded.format = U
+        decoded.kind = AUIPC
+        decoded.immediate = raw[31:12] followed by 12 zero bits
+        control.reg_write = true
+        control.alu_src_pc = true
+        control.alu_src_imm = true
+        control.alu_op = ADD
+        control.writeback_source = ALU
+```
+
+```text
+    if opcode == JAL or JALR:
+        decoded.kind = JAL / JALR
+        control.reg_write = true
+        control.jump = true
+        control.writeback_source = PC_PLUS_4
+```
+
+Hardware rationale: the decode stage is where instruction bits become control
+signals. Later stages should not need to rediscover whether an instruction is a
+load, store, branch, ALU operation, or jump; they should simply follow the
+latched control signals.
+
 ## Cycle Accounting
 
 ```text
