@@ -110,6 +110,8 @@ struct EXMEMRegister {
     uint8_t rd = 0;
     uint32_t alu_result = 0;
     uint32_t store_value = 0;
+    uint32_t pc_plus_4 = 0;
+    uint32_t immediate = 0;
     uint32_t branch_target = 0;
     bool branch_taken = false;
 

@@ -370,6 +370,127 @@ signals. Later stages should not need to rediscover whether an instruction is a
 load, store, branch, ALU operation, or jump; they should simply follow the
 latched control signals.
 
+## Five-Stage Pipeline Skeleton
+
+```text
+run_pipeline_cycle(cpu, pipeline):
+    pipeline.clear_next()
+
+    control = empty stage control
+
+    stage_WB(cpu, pipeline)
+    stage_MEM(cpu, pipeline)
+    stage_EX(cpu, pipeline, control)
+    stage_ID(cpu, pipeline, control)
+    stage_IF(cpu, pipeline)
+
+    pipeline.commit()
+    cpu.tick()
+```
+
+Stages run in reverse order so every stage reads the current pipeline latch and
+writes the next pipeline latch. The `commit()` call models the clock edge.
+
+```text
+stage_IF:
+    if PC is outside memory:
+        next IF/ID = bubble
+        return
+
+    instruction = memory[PC]
+    next IF/ID.valid = true
+    next IF/ID.pc = PC
+    next IF/ID.instruction = instruction
+    PC = PC + 4
+```
+
+Fetch reads the next raw instruction word. For now, fetch assumes sequential
+execution unless EX redirects the PC for a taken branch or jump.
+
+```text
+stage_ID:
+    if EX requested a flush:
+        next ID/EX = bubble
+        return
+
+    if current IF/ID is not valid:
+        next ID/EX = bubble
+        return
+
+    decoded = decode_instruction(IF/ID.instruction)
+
+    if decoded is invalid:
+        next ID/EX = bubble
+        return
+
+    next ID/EX.valid = true
+    next ID/EX.pc = IF/ID.pc
+    next ID/EX decoded fields = decoded fields
+    next ID/EX.rs1_value = register_file[rs1]
+    next ID/EX.rs2_value = register_file[rs2]
+    next ID/EX.control = decoded.control
+```
+
+Decode turns instruction bits into control signals and reads the register file.
+
+```text
+stage_EX:
+    if current ID/EX is not valid:
+        next EX/MEM = bubble
+        return
+
+    lhs = PC if control.alu_src_pc else rs1_value
+    rhs = immediate if control.alu_src_imm else rs2_value
+    alu_result = execute ALU operation
+
+    next EX/MEM.valid = true
+    next EX/MEM.alu_result = alu_result
+    next EX/MEM.store_value = rs2_value
+    next EX/MEM.pc_plus_4 = PC + 4
+    next EX/MEM.immediate = immediate
+    next EX/MEM.control = control
+
+    if branch is taken or jump redirects:
+        PC = target
+        flush younger decode work
+```
+
+Execute performs the ALU operation, branch comparison, and target-address
+calculation.
+
+```text
+stage_MEM:
+    if current EX/MEM is not valid:
+        next MEM/WB = bubble
+        return
+
+    next MEM/WB = forwarded EX/MEM data
+
+    if control.mem_read:
+        next MEM/WB.memory_data = memory[alu_result]
+
+    if control.mem_write:
+        memory[alu_result] = store_value
+```
+
+Memory uses the ALU result as an address for loads and stores. In this first
+skeleton, memory behaves as a single-cycle access.
+
+```text
+stage_WB:
+    if current MEM/WB is not valid:
+        return
+
+    if control.reg_write:
+        value = select ALU / memory / PC+4 / immediate
+        register_file[rd] = value
+
+    instruction_count += 1
+```
+
+Writeback commits the architectural register result and counts the instruction
+as retired.
+
 ## Cycle Accounting
 
 ```text
