@@ -1,4 +1,4 @@
-#pragma once
+#pragma once //Tells compiler to load this header file only one time during a build
 
 #include <cstdint>
 

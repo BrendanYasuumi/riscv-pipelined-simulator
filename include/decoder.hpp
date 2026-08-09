@@ -4,6 +4,8 @@
 
 namespace rv32i {
 
+
+//Different Instruction Set Types
 struct RTypeFields {
     uint8_t opcode = 0;
     uint8_t rd = 0;
