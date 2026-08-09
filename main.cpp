@@ -15,11 +15,9 @@ struct DemoInstruction {
     std::string_view assembly;
 };
 
-constexpr std::array<DemoInstruction, 5> kDemoProgram{{
+constexpr std::array<DemoInstruction, 3> kDemoProgram{{
     {0x00500093u, "addi x1, x0, 5"},
     {0x00700113u, "addi x2, x0, 7"},
-    {0x00000013u, "nop"},
-    {0x00000013u, "nop"},
     {0x002081B3u, "add x3, x1, x2"},
 }};
 
@@ -77,9 +75,9 @@ int main() {
     load_demo_program(cpu);
     print_demo_program();
 
-    // Five instructions plus four drain cycles lets the last instruction move
-    // through IF, ID, EX, MEM, and WB in this simple five-stage pipeline.
-    constexpr uint64_t kCyclesToRun = kDemoProgram.size() + 4;
+    // Three instructions plus four drain cycles plus two RAW stalls. The stalls
+    // are inserted automatically by the hazard unit; no manual NOPs are needed.
+    constexpr uint64_t kCyclesToRun = kDemoProgram.size() + 4 + 2;
     for (uint64_t cycle = 0; cycle < kCyclesToRun; ++cycle) {
         rv32i::run_pipeline_cycle(cpu, pipeline);
     }

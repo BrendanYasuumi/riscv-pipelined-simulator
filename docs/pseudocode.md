@@ -491,6 +491,54 @@ stage_WB:
 Writeback commits the architectural register result and counts the instruction
 as retired.
 
+## RAW Hazard Detection
+
+```text
+get_source_registers(decoded_instruction):
+    sources = empty
+
+    if instruction is R-type ALU, store, or branch:
+        sources.rs1 = decoded.rs1
+        sources.rs2 = decoded.rs2
+
+    if instruction is I-type ALU, load, or jalr:
+        sources.rs1 = decoded.rs1
+
+    if source is x0:
+        ignore it because x0 is always ready
+
+    return sources
+```
+
+```text
+detect_raw_hazard(pipeline):
+    if IF/ID is empty:
+        return no stall
+
+    decoded = decode_instruction(IF/ID.instruction)
+    sources = get_source_registers(decoded)
+
+    if ID/EX will write rd and rd matches a source:
+        return stall
+
+    if EX/MEM will write rd and rd matches a source:
+        return stall
+
+    return no stall
+```
+
+```text
+on RAW hazard:
+    next IF/ID = current IF/ID
+    PC stays the same
+    next ID/EX = bubble
+    stats.stall_cycles += 1
+```
+
+Hardware rationale: without forwarding, a dependent instruction must wait until
+the older producer reaches writeback. The bubble gives the older instruction
+time to move forward while the younger instruction waits in decode.
+
 ## Cycle Accounting
 
 ```text

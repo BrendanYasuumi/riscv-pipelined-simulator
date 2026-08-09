@@ -6,6 +6,7 @@ SOURCES := \
 	main.cpp \
 	src/cpu.cpp \
 	src/decoder.cpp \
+	src/hazard_unit.cpp \
 	src/instruction.cpp \
 	src/stages.cpp
 

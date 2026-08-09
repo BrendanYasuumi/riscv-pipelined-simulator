@@ -7,6 +7,7 @@ namespace rv32i {
 
 struct StageControl {
     bool flush_id_ex = false;
+    bool stall_fetch_decode = false;
 };
 
 void stage_WB(CPU& cpu, PipelineRegisters& pipeline);

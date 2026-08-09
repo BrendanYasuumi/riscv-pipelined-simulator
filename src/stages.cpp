@@ -1,5 +1,6 @@
 #include "stages.hpp"
 
+#include "hazard_unit.hpp"
 #include "instruction.hpp"
 
 #include <cstdint>
@@ -232,6 +233,11 @@ void stage_ID(CPU& cpu,
         return;
     }
 
+    if (control.stall_fetch_decode) {
+        pipeline.next_id_ex.clear();
+        return;
+    }
+
     const IFIDRegister& if_id = pipeline.if_id;
     if (!if_id.valid) {
         pipeline.next_id_ex.clear();
@@ -263,6 +269,8 @@ void stage_ID(CPU& cpu,
 }
 
 void stage_IF(CPU& cpu, PipelineRegisters& pipeline) {
+    pipeline.next_if_id = pipeline.if_id;
+
     const uint32_t pc = cpu.pc();
     if (static_cast<uint64_t>(pc) + sizeof(uint32_t) > cpu.memory_size()) {
         pipeline.next_if_id.clear();
@@ -285,8 +293,23 @@ void run_pipeline_cycle(CPU& cpu, PipelineRegisters& pipeline) {
     stage_WB(cpu, pipeline);
     stage_MEM(cpu, pipeline);
     stage_EX(cpu, pipeline, control);
+
+    if (!control.flush_id_ex) {
+        const HazardDecision hazard = detect_raw_hazard(pipeline);
+        control.stall_fetch_decode = hazard.stall;
+
+        if (hazard.stall) {
+            ++cpu.mutable_stats().stall_cycles;
+        }
+    }
+
     stage_ID(cpu, pipeline, control);
-    stage_IF(cpu, pipeline);
+
+    if (!control.stall_fetch_decode) {
+        stage_IF(cpu, pipeline);
+    } else {
+        pipeline.next_if_id = pipeline.if_id;
+    }
 
     pipeline.commit();
     cpu.tick();
