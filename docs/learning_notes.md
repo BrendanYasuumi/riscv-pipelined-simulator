@@ -254,3 +254,123 @@ The simulator still inserts a bubble for this case.
 Forwarding improves performance without changing the program's architectural
 result. The same instructions retire with the same final register values, but
 fewer cycles are wasted on bubbles.
+
+## Tests, Hex Loader, CLI, Branch Prediction, and Memory Latency
+
+### What changed
+
+- Added `make test` with assertion-based simulator behavior tests.
+- Added a hex loader so programs can be loaded from files.
+- Added CLI flags for forwarding, memory latency, branch predictor policy, and
+  max cycle count.
+- Added branch prediction metadata to the fetch/decode path.
+- Added CPU-owned 2-bit branch predictor counters.
+- Added memory-stage stalls for multi-cycle load/store latency.
+
+### Why tests came first
+
+Pipeline simulators are easy to break because a timing change in one stage can
+silently affect another stage. Tests give us a quick way to check important
+hardware rules after every change.
+
+Current tests cover:
+
+```text
+x0 stays zero
+little-endian memory
+R-type field decoding
+instruction classification
+forwarding removes ALU stalls
+disabling forwarding restores stalls
+load-use still stalls once
+memory latency adds stalls
+hex loader parsing
+always-taken branch prediction
+```
+
+### Hex program format
+
+A `.hex` file contains one 32-bit instruction word per line:
+
+```text
+00500093
+00700113
+002081b3
+```
+
+The loader stores each word into memory in little-endian byte order.
+
+### CLI examples
+
+```text
+./simulator
+./simulator examples/add.hex
+./simulator examples/add.hex --no-forwarding
+./simulator examples/add.hex --memory-latency=3
+./simulator examples/add.hex --branch-predictor=two-bit
+./simulator examples/add.hex --max-cycles=500
+```
+
+### Branch prediction model
+
+The fetch stage predicts branches before EX knows the true result.
+
+Supported policies:
+
+```text
+always-not-taken
+always-taken
+two-bit
+```
+
+For the 2-bit predictor:
+
+```text
+0 = strongly not taken
+1 = weakly not taken
+2 = weakly taken
+3 = strongly taken
+```
+
+When a branch resolves in EX:
+
+```text
+if prediction was wrong:
+    redirect PC
+    flush younger decode work
+    branch_mispredictions += 1
+
+if using two-bit predictor:
+    update saturating counter
+```
+
+### Memory latency model
+
+`memory_latency_cycles = 1` means ideal single-cycle memory.
+
+If memory latency is greater than one:
+
+```text
+MEM holds the load/store
+younger stages are frozen
+stall_cycles += 1 each waiting cycle
+```
+
+This models a slow RAM access or a future cache miss path.
+
+### What this teaches
+
+At this point the simulator can run small external machine-code programs. It is
+still not an ELF loader or assembler, but it now has the core pieces needed for
+architectural experiments:
+
+```text
+program loading
+pipeline timing
+hazards
+forwarding
+branch prediction
+memory latency
+metrics
+tests
+```

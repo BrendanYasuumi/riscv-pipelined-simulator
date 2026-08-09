@@ -23,6 +23,7 @@ class CPU {
 public:
     static constexpr std::size_t kNumRegisters = 32;
     static constexpr uint32_t kResetPC = 0;
+    static constexpr std::size_t kBranchPredictorEntries = 64;
 
     explicit CPU(std::size_t memory_size_bytes, Config config = {});
 
@@ -57,12 +58,16 @@ public:
     ExecutionStats& mutable_stats();
     void tick();
 
+    bool predict_branch(uint32_t pc) const;
+    void update_branch_predictor(uint32_t pc, bool taken);
+
 private:
     void validate_register_index(uint8_t reg_index) const;
     void validate_memory_access(uint32_t address, std::size_t width) const;
 
     Config config_;
     std::array<uint32_t, kNumRegisters> regs_{};
+    std::array<uint8_t, kBranchPredictorEntries> branch_predictor_counters_{};
     uint32_t pc_ = kResetPC;
     std::vector<uint8_t> memory_;
     ExecutionStats stats_{};

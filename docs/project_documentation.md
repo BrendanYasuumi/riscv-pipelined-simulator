@@ -530,6 +530,113 @@ add  x3, x1, x4
 The hazard unit still inserts one bubble for this case when forwarding is
 enabled.
 
+## Step 10: Tests, Hex Loader, CLI, Branch Prediction, and Memory Latency
+
+### Files
+
+```text
+include/program_loader.hpp
+src/program_loader.cpp
+tests/simulator_tests.cpp
+examples/add.hex
+main.cpp
+Makefile
+include/cpu.hpp
+src/cpu.cpp
+include/pipeline_registers.hpp
+src/stages.cpp
+```
+
+### What We Built
+
+This step made the simulator runnable as a small program runner instead of only
+a hardcoded demo.
+
+New capabilities:
+
+```text
+make test
+external .hex program loading
+CLI configuration flags
+always-not-taken prediction
+always-taken prediction
+2-bit saturating counter prediction
+multi-cycle memory stalls
+```
+
+### Problem
+
+The simulator had useful internal modules, but it still needed:
+
+```text
+repeatable tests
+a way to load programs without editing C++
+runtime configuration knobs
+control-hazard experimentation
+memory-latency experimentation
+```
+
+### Solution
+
+We added an assertion-based test executable and a simple hex loader. We also
+expanded the CLI so architectural experiments can be run from the terminal.
+
+Example commands:
+
+```text
+make
+make test
+./simulator
+./simulator examples/add.hex
+./simulator examples/add.hex --no-forwarding
+./simulator examples/add.hex --memory-latency=3
+./simulator examples/add.hex --branch-predictor=two-bit
+```
+
+### Why This Solution
+
+A plain hex loader is much simpler than ELF support and is enough to run small
+machine-code programs. It also keeps the project focused on pipeline timing
+rather than file-format complexity.
+
+### Branch Prediction Rationale
+
+Branches create control hazards because fetch needs the next PC before EX knows
+whether the branch is actually taken.
+
+The simulator now stores prediction metadata in the pipeline:
+
+```text
+predicted_taken
+predicted_target
+```
+
+EX compares this prediction against the actual branch result. If they differ,
+the simulator redirects the PC and flushes younger work.
+
+### Memory Latency Rationale
+
+`memory_latency_cycles` now affects load/store timing. If memory takes multiple
+cycles, MEM holds the operation and freezes younger stages until the access is
+ready to complete.
+
+### Test Coverage
+
+The test runner currently checks:
+
+```text
+x0 hardwired behavior
+little-endian memory
+decoder field extraction
+instruction classification
+forwarding behavior
+no-forwarding stall behavior
+load-use stalls
+memory-latency stalls
+hex loader parsing
+always-taken branch prediction
+```
+
 ## Current Demo Program
 
 The current demo program is:
@@ -582,6 +689,16 @@ include/stages.hpp
 src/stages.cpp
     Five pipeline stages and the cycle runner.
 
+include/program_loader.hpp
+src/program_loader.cpp
+    Hex program loading.
+
+tests/simulator_tests.cpp
+    Assertion-based simulator behavior tests.
+
+examples/add.hex
+    Small external hex program for the default add dependency example.
+
 main.cpp
     Demo simulator entry point.
 
@@ -597,15 +714,15 @@ docs/learning_notes.md
 
 ## Known Limitations
 
-- Branch prediction is configured but not fully implemented.
-- Memory latency knob exists but multi-cycle memory is not implemented yet.
 - No external ELF or binary loader yet.
-- No automated test suite yet.
+- No assembler support yet.
+- Branch predictor is small and direct-mapped.
+- JALR cannot be predicted in IF because its target depends on a register value.
 
 ## Recommended Next Steps
 
-1. Add branch prediction and flush refinement.
-2. Add memory latency handling.
-3. Add automated unit tests.
-4. Add a binary/hex program loader.
-5. Add CLI flags for configuration.
+1. Add more RV32I instruction execution tests.
+2. Add a binary loader for raw `.bin` files.
+3. Add richer branch predictor tests.
+4. Add simple assembly-to-hex examples in `examples/`.
+5. Add README quick-start instructions.

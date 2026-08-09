@@ -3,6 +3,7 @@
 *.out
 /out
 simulator
+simulator_tests
 emulator
 
 # VS Code settings

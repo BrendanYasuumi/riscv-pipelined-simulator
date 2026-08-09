@@ -22,10 +22,13 @@ double ExecutionStats::ipc() const {
 }
 
 CPU::CPU(std::size_t memory_size_bytes, Config config)
-    : config_(config), memory_(memory_size_bytes, 0) {}
+    : config_(config), memory_(memory_size_bytes, 0) {
+    branch_predictor_counters_.fill(1);
+}
 
 void CPU::reset() {
     regs_.fill(0);
+    branch_predictor_counters_.fill(1);
     pc_ = kResetPC;
     stats_ = ExecutionStats{};
 }
@@ -148,6 +151,38 @@ ExecutionStats& CPU::mutable_stats() {
 
 void CPU::tick() {
     ++stats_.clock_cycles;
+}
+
+bool CPU::predict_branch(uint32_t pc) const {
+    switch (config_.branch_predictor_type) {
+        case BranchPredictorType::AlwaysNotTaken:
+            return false;
+        case BranchPredictorType::AlwaysTaken:
+            return true;
+        case BranchPredictorType::TwoBitSaturatingCounter: {
+            const std::size_t index =
+                (pc >> 2) % branch_predictor_counters_.size();
+            return branch_predictor_counters_[index] >= 2;
+        }
+    }
+
+    return false;
+}
+
+void CPU::update_branch_predictor(uint32_t pc, bool taken) {
+    if (config_.branch_predictor_type !=
+        BranchPredictorType::TwoBitSaturatingCounter) {
+        return;
+    }
+
+    const std::size_t index = (pc >> 2) % branch_predictor_counters_.size();
+    uint8_t& counter = branch_predictor_counters_[index];
+
+    if (taken && counter < 3) {
+        ++counter;
+    } else if (!taken && counter > 0) {
+        --counter;
+    }
 }
 
 void CPU::validate_register_index(uint8_t reg_index) const {

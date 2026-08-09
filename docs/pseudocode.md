@@ -589,6 +589,152 @@ value directly to the execute stage instead of waiting for the register file to
 be updated. `EX/MEM` has priority over `MEM/WB` because it contains the newer
 value if both stages target the same register.
 
+## Hex Program Loader
+
+```text
+load_hex_program(path):
+    open file
+
+    for each line:
+        remove anything after '#'
+        trim whitespace
+
+        if line is empty:
+            continue
+
+        remove optional '0x' prefix
+        parse line as 32-bit hex word
+        append word to program bytes in little-endian order
+        instruction_count += 1
+
+    if instruction_count == 0:
+        error
+
+    return program bytes and instruction count
+```
+
+Hardware rationale: the simulator memory is byte-addressable, but the easiest
+human-editable program format is one 32-bit instruction word per line.
+
+## Branch Prediction
+
+```text
+predict_branch(pc):
+    if predictor is always-not-taken:
+        return false
+
+    if predictor is always-taken:
+        return true
+
+    if predictor is two-bit:
+        counter = predictor_table[(pc >> 2) mod table_size]
+        return counter >= 2
+```
+
+```text
+update_branch_predictor(pc, taken):
+    if predictor is not two-bit:
+        return
+
+    counter = predictor_table[(pc >> 2) mod table_size]
+
+    if taken and counter < 3:
+        counter += 1
+
+    if not taken and counter > 0:
+        counter -= 1
+```
+
+```text
+stage_IF with prediction:
+    instruction = memory[PC]
+    decoded = decode_instruction(instruction)
+
+    predicted_taken = false
+    predicted_target = PC + 4
+
+    if decoded is branch and predictor says taken:
+        predicted_taken = true
+        predicted_target = PC + immediate
+
+    if decoded is JAL:
+        predicted_taken = true
+        predicted_target = PC + immediate
+
+    next IF/ID.predicted_taken = predicted_taken
+    next IF/ID.predicted_target = predicted_target
+    PC = predicted_target if predicted_taken else PC + 4
+```
+
+```text
+stage_EX branch resolution:
+    actual_taken = evaluate branch condition
+    actual_target = branch target if taken else PC + 4
+
+    if predicted_taken != actual_taken:
+        misprediction
+
+    if actual_taken and predicted_target != actual_target:
+        misprediction
+
+    if misprediction:
+        PC = actual_target
+        flush younger decode work
+        branch_mispredictions += 1
+
+    update branch predictor with actual outcome
+```
+
+Hardware rationale: fetch must choose a next PC before the branch reaches EX.
+Prediction guesses that next PC. EX later verifies the guess and flushes
+wrong-path work if needed.
+
+## Memory Latency
+
+```text
+when EX sends load/store to EX/MEM:
+    memory_cycles_remaining = max(1, config.memory_latency_cycles)
+```
+
+```text
+stage_MEM:
+    if load/store and memory_cycles_remaining > 1:
+        next EX/MEM = current EX/MEM
+        next EX/MEM.memory_cycles_remaining -= 1
+        next MEM/WB = bubble
+        stall whole younger pipeline
+        stall_cycles += 1
+        return
+
+    if load:
+        read memory into MEM/WB
+
+    if store:
+        write memory
+```
+
+Hardware rationale: a slow memory operation occupies MEM for multiple cycles.
+Younger instructions cannot advance past EX into MEM while the memory stage is
+busy, so the simulator freezes younger latches.
+
+## CLI Simulation Loop
+
+```text
+main:
+    parse CLI options
+    load built-in demo or external hex program
+    create CPU with selected Config
+    load program bytes into memory
+
+    while retired instructions < program instruction count:
+        if clock_cycles reached max_cycles:
+            stop with failure
+        run_pipeline_cycle(cpu, pipeline)
+
+    print registers
+    print stats
+```
+
 ## Cycle Accounting
 
 ```text
