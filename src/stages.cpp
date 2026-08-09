@@ -1,5 +1,6 @@
 #include "stages.hpp"
 
+#include "forwarding_unit.hpp"
 #include "hazard_unit.hpp"
 #include "instruction.hpp"
 
@@ -185,10 +186,14 @@ void stage_EX(CPU& cpu, PipelineRegisters& pipeline, StageControl& control) {
         return;
     }
 
-    const uint32_t lhs = id_ex.control.alu_src_pc ? id_ex.pc : id_ex.rs1_value;
+    const ForwardedOperands operands =
+        resolve_forwarding(id_ex, pipeline, cpu.config().enable_forwarding);
+
+    const uint32_t lhs = id_ex.control.alu_src_pc ? id_ex.pc
+                                                  : operands.rs1_value;
     const uint32_t rhs = id_ex.control.alu_src_imm
                              ? static_cast<uint32_t>(id_ex.immediate)
-                             : id_ex.rs2_value;
+                             : operands.rs2_value;
 
     EXMEMRegister next{};
     next.valid = true;
@@ -196,15 +201,15 @@ void stage_EX(CPU& cpu, PipelineRegisters& pipeline, StageControl& control) {
     next.instruction = id_ex.instruction;
     next.rd = id_ex.rd;
     next.alu_result = execute_alu(id_ex.control.alu_op, lhs, rhs);
-    next.store_value = id_ex.rs2_value;
+    next.store_value = operands.rs2_value;
     next.pc_plus_4 = id_ex.pc + 4;
     next.immediate = static_cast<uint32_t>(id_ex.immediate);
     next.control = id_ex.control;
 
     if (id_ex.control.branch) {
         next.branch_taken = evaluate_branch(id_ex.control.branch_condition,
-                                            id_ex.rs1_value,
-                                            id_ex.rs2_value);
+                                            operands.rs1_value,
+                                            operands.rs2_value);
         next.branch_target = id_ex.pc + static_cast<uint32_t>(id_ex.immediate);
     } else if (id_ex.control.jump) {
         next.branch_taken = true;
@@ -295,7 +300,8 @@ void run_pipeline_cycle(CPU& cpu, PipelineRegisters& pipeline) {
     stage_EX(cpu, pipeline, control);
 
     if (!control.flush_id_ex) {
-        const HazardDecision hazard = detect_raw_hazard(pipeline);
+        const HazardDecision hazard =
+            detect_raw_hazard(pipeline, cpu.config().enable_forwarding);
         control.stall_fetch_decode = hazard.stall;
 
         if (hazard.stall) {

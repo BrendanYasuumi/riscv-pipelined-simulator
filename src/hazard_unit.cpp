@@ -81,7 +81,8 @@ SourceRegisters get_source_registers(const DecodedInstruction& instruction) {
     return sources;
 }
 
-HazardDecision detect_raw_hazard(const PipelineRegisters& pipeline) {
+HazardDecision detect_raw_hazard(const PipelineRegisters& pipeline,
+                                 bool enable_forwarding) {
     HazardDecision decision{};
 
     if (!pipeline.if_id.valid) {
@@ -100,11 +101,12 @@ HazardDecision detect_raw_hazard(const PipelineRegisters& pipeline) {
                         pipeline.id_ex.control,
                         pipeline.id_ex.rd) &&
         depends_on(sources, pipeline.id_ex.rd)) {
-        decision.stall = true;
+        decision.stall = !enable_forwarding || pipeline.id_ex.control.mem_read;
         return decision;
     }
 
-    if (writes_register(pipeline.ex_mem.valid,
+    if (!enable_forwarding &&
+        writes_register(pipeline.ex_mem.valid,
                         pipeline.ex_mem.control,
                         pipeline.ex_mem.rd) &&
         depends_on(sources, pipeline.ex_mem.rd)) {

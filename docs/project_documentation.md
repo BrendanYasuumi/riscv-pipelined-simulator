@@ -447,6 +447,89 @@ WB -> MEM -> EX -> ID -> IF
 So a value in `MEM/WB` writes the register file before decode reads registers
 in that same cycle.
 
+## Step 9: Forwarding Support
+
+### Files
+
+```text
+include/forwarding_unit.hpp
+src/forwarding_unit.cpp
+include/hazard_unit.hpp
+src/hazard_unit.cpp
+src/stages.cpp
+main.cpp
+```
+
+### What We Built
+
+The forwarding unit resolves operand values for the EX stage.
+
+Supported forwarding paths:
+
+```text
+EX/MEM -> EX
+MEM/WB -> EX
+```
+
+### Problem
+
+RAW stalls are correct, but they are conservative. Many ALU results are already
+available before writeback.
+
+Example:
+
+```text
+addi x1, x0, 5
+add  x2, x1, x0
+```
+
+The `add` needs `x1`, but the `addi` result can be forwarded from a later
+pipeline stage instead of waiting for register writeback.
+
+### Solution
+
+Before EX chooses ALU operands, the forwarding unit checks whether `rs1` or
+`rs2` matches a destination register in a later pipeline stage.
+
+Pseudocode:
+
+```text
+resolve_forwarding:
+    start with the values read during decode
+
+    if EX/MEM writes a matching rd:
+        use EX/MEM result
+
+    else if MEM/WB writes a matching rd:
+        use MEM/WB writeback value
+```
+
+### Why This Solution
+
+Forwarding improves performance without changing architectural behavior. The
+same final register values are produced, but fewer bubbles are inserted.
+
+### Why EX/MEM Has Priority
+
+If both `EX/MEM` and `MEM/WB` match the same source register, `EX/MEM` is newer.
+The simulator forwards the newest available value.
+
+### Why Load-Use Still Stalls
+
+Loads produce their value in MEM, not EX. If an instruction immediately after a
+load needs the loaded value, the data is not available early enough for a normal
+EX/MEM bypass.
+
+Example:
+
+```text
+lw   x1, 0(x2)
+add  x3, x1, x4
+```
+
+The hazard unit still inserts one bubble for this case when forwarding is
+enabled.
+
 ## Current Demo Program
 
 The current demo program is:
@@ -463,7 +546,7 @@ Expected result:
 x1 = 5
 x2 = 7
 x3 = 12
-stall_cycles = 2
+stall_cycles = 0 when forwarding is enabled
 ```
 
 ## Current File Map
@@ -491,6 +574,10 @@ include/hazard_unit.hpp
 src/hazard_unit.cpp
     RAW hazard detection and source-register analysis.
 
+include/forwarding_unit.hpp
+src/forwarding_unit.cpp
+    EX-stage operand forwarding from EX/MEM and MEM/WB.
+
 include/stages.hpp
 src/stages.cpp
     Five pipeline stages and the cycle runner.
@@ -510,7 +597,6 @@ docs/learning_notes.md
 
 ## Known Limitations
 
-- No forwarding yet.
 - Branch prediction is configured but not fully implemented.
 - Memory latency knob exists but multi-cycle memory is not implemented yet.
 - No external ELF or binary loader yet.
@@ -518,9 +604,8 @@ docs/learning_notes.md
 
 ## Recommended Next Steps
 
-1. Add forwarding support.
-2. Add branch prediction and flush refinement.
-3. Add memory latency handling.
-4. Add automated unit tests.
-5. Add a binary/hex program loader.
-6. Add CLI flags for configuration.
+1. Add branch prediction and flush refinement.
+2. Add memory latency handling.
+3. Add automated unit tests.
+4. Add a binary/hex program loader.
+5. Add CLI flags for configuration.

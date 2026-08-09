@@ -439,13 +439,15 @@ stage_EX:
         next EX/MEM = bubble
         return
 
-    lhs = PC if control.alu_src_pc else rs1_value
-    rhs = immediate if control.alu_src_imm else rs2_value
+    forwarded = resolve_forwarding(ID/EX)
+
+    lhs = PC if control.alu_src_pc else forwarded.rs1_value
+    rhs = immediate if control.alu_src_imm else forwarded.rs2_value
     alu_result = execute ALU operation
 
     next EX/MEM.valid = true
     next EX/MEM.alu_result = alu_result
-    next EX/MEM.store_value = rs2_value
+    next EX/MEM.store_value = forwarded.rs2_value
     next EX/MEM.pc_plus_4 = PC + 4
     next EX/MEM.immediate = immediate
     next EX/MEM.control = control
@@ -511,7 +513,7 @@ get_source_registers(decoded_instruction):
 ```
 
 ```text
-detect_raw_hazard(pipeline):
+detect_raw_hazard(pipeline, enable_forwarding):
     if IF/ID is empty:
         return no stall
 
@@ -519,9 +521,13 @@ detect_raw_hazard(pipeline):
     sources = get_source_registers(decoded)
 
     if ID/EX will write rd and rd matches a source:
-        return stall
+        if forwarding is disabled:
+            return stall
+        if ID/EX is a load:
+            return stall
+        return no stall
 
-    if EX/MEM will write rd and rd matches a source:
+    if forwarding is disabled and EX/MEM will write rd and rd matches a source:
         return stall
 
     return no stall
@@ -538,6 +544,50 @@ on RAW hazard:
 Hardware rationale: without forwarding, a dependent instruction must wait until
 the older producer reaches writeback. The bubble gives the older instruction
 time to move forward while the younger instruction waits in decode.
+
+## Forwarding
+
+```text
+resolve_forwarding(ID/EX, pipeline, enable_forwarding):
+    operands.rs1_value = ID/EX.rs1_value
+    operands.rs2_value = ID/EX.rs2_value
+
+    if forwarding is disabled:
+        return operands
+
+    if EX/MEM will write rd and EX/MEM is not a load:
+        if rd == ID/EX.rs1:
+            operands.rs1_value = EX/MEM result
+        if rd == ID/EX.rs2:
+            operands.rs2_value = EX/MEM result
+
+    if MEM/WB will write rd and the source was not already forwarded:
+        if rd == ID/EX.rs1:
+            operands.rs1_value = MEM/WB writeback value
+        if rd == ID/EX.rs2:
+            operands.rs2_value = MEM/WB writeback value
+
+    return operands
+```
+
+```text
+EX/MEM forward value:
+    ALU       -> EX/MEM.alu_result
+    PC_PLUS_4 -> EX/MEM.pc_plus_4
+    IMMEDIATE -> EX/MEM.immediate
+    MEMORY    -> cannot forward from EX/MEM
+
+MEM/WB forward value:
+    ALU       -> MEM/WB.alu_result
+    MEMORY    -> MEM/WB.memory_data
+    PC_PLUS_4 -> MEM/WB.pc_plus_4
+    IMMEDIATE -> MEM/WB.immediate
+```
+
+Hardware rationale: forwarding is a bypass network. It sends a newly computed
+value directly to the execute stage instead of waiting for the register file to
+be updated. `EX/MEM` has priority over `MEM/WB` because it contains the newer
+value if both stages target the same register.
 
 ## Cycle Accounting
 

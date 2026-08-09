@@ -75,10 +75,9 @@ int main() {
     load_demo_program(cpu);
     print_demo_program();
 
-    // Three instructions plus four drain cycles plus two RAW stalls. The stalls
-    // are inserted automatically by the hazard unit; no manual NOPs are needed.
-    constexpr uint64_t kCyclesToRun = kDemoProgram.size() + 4 + 2;
-    for (uint64_t cycle = 0; cycle < kCyclesToRun; ++cycle) {
+    constexpr uint64_t kMaxCycles = 100;
+    while (cpu.stats().instruction_count < kDemoProgram.size() &&
+           cpu.stats().clock_cycles < kMaxCycles) {
         rv32i::run_pipeline_cycle(cpu, pipeline);
     }
 
