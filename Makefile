@@ -9,6 +9,7 @@ CORE_SOURCES := \
 	src/forwarding_unit.cpp \
 	src/hazard_unit.cpp \
 	src/instruction.cpp \
+	src/pipeline_trace.cpp \
 	src/program_loader.cpp \
 	src/stages.cpp
 

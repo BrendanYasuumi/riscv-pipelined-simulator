@@ -38,6 +38,7 @@ branch prediction, memory latency, and performance metrics.
 - Configurable memory latency
 - External `.hex` program loader
 - CLI configuration flags
+- Optional per-cycle pipeline trace output
 - Execution metrics
   - Total cycles
   - Instructions retired
@@ -149,6 +150,12 @@ Set a max cycle limit:
 ./simulator examples/add.hex --max-cycles=500
 ```
 
+Print a per-cycle pipeline trace:
+
+```bash
+./simulator examples/add.hex --trace
+```
+
 Show help:
 
 ```bash
@@ -159,6 +166,10 @@ Show help:
 
 The simulator accepts simple `.hex` files with one 32-bit instruction word per
 line.
+
+A `.hex` program is not assembly source. It is a text representation of the
+machine code that the CPU fetches. Each line is one instruction already encoded
+as a 32-bit hexadecimal value.
 
 Example:
 
@@ -176,6 +187,12 @@ Example:
 Comments begin with `#`. Words may optionally use a `0x` prefix.
 
 The loader stores each 32-bit word into memory in little-endian byte order.
+For example, the line `00500093` represents the instruction word
+`0x00500093`, which the loader places into byte-addressable RAM as:
+
+```text
+93 00 50 00
+```
 
 ## Example Output
 
@@ -258,6 +275,10 @@ include/stages.hpp
 src/stages.cpp
     Five pipeline stages and the cycle runner.
 
+include/pipeline_trace.hpp
+src/pipeline_trace.cpp
+    Optional per-cycle pipeline latch tracing.
+
 include/program_loader.hpp
 src/program_loader.cpp
     External .hex program loader.
@@ -286,6 +307,12 @@ Current tests cover:
 - Little-endian memory access
 - R-type instruction field decoding
 - Instruction classification
+- R-type ALU execution
+- I-type ALU execution
+- Load/store execution
+- LUI/AUIPC execution
+- Branch flush behavior
+- JAL/JALR behavior
 - Forwarding behavior
 - No-forwarding stall behavior
 - Load-use hazard stall behavior
@@ -296,8 +323,6 @@ Current tests cover:
 ## Current Limitations
 
 - Supports a focused RV32I subset, not every RV32I instruction yet.
-- Loads, stores, ALU operations, branches, jumps, and control signals are
-  scaffolded, but more instruction-specific tests should be added.
 - No ELF loader yet.
 - No assembler yet.
 - Branch predictor is intentionally small and direct-mapped.
@@ -306,12 +331,10 @@ Current tests cover:
 
 ## Roadmap
 
-- Add more RV32I instruction execution tests.
 - Add raw binary program loading.
 - Add more example programs.
 - Add richer branch prediction tests.
-- Add README diagrams or pipeline traces.
-- Add optional per-cycle trace output.
+- Add README diagrams.
 - Add cache modeling hooks using the existing memory-latency interface.
 
 ## Design Notes
@@ -325,6 +348,7 @@ This project separates hardware concepts into focused modules:
 - The hazard unit decides when the pipeline must stall.
 - The forwarding unit chooses bypassed operands.
 - The stage module advances the simulated pipeline one cycle at a time.
+- The trace module prints latch contents so timing behavior can be inspected.
 
 That separation keeps the simulator easier to reason about and makes each
 microarchitectural feature testable in isolation.

@@ -374,3 +374,79 @@ memory latency
 metrics
 tests
 ```
+
+## RV32I Execution Tests and Pipeline Trace Output
+
+### What changed
+
+- Added broader instruction execution tests for ALU, memory, branches, jumps,
+  `LUI`, and `AUIPC`.
+- Added a `--trace` CLI flag.
+- Added a pipeline trace module that prints each pipeline latch at the start of
+  every cycle.
+
+### What a `.hex` program is
+
+A `.hex` program is a text file containing machine code, not assembly language.
+
+Assembly looks like this:
+
+```text
+addi x1, x0, 5
+```
+
+The encoded 32-bit machine instruction looks like this:
+
+```text
+00500093
+```
+
+The simulator reads the hex word, converts it to a 32-bit integer, then stores
+it into memory in little-endian byte order.
+
+```text
+hex line:        00500093
+instruction:     0x00500093
+bytes in memory: 93 00 50 00
+```
+
+### Why more execution tests matter
+
+Decoding an instruction is not enough. The simulator also has to prove that the
+pipeline produces the correct architectural result after hazards, forwarding,
+branches, memory access, and writeback.
+
+The expanded tests check:
+
+```text
+R-type ALU operations
+I-type ALU operations
+loads and stores
+signed and unsigned loads
+LUI and AUIPC
+branch misprediction flushes
+forwarded branch operands
+JAL and JALR
+```
+
+### What trace output teaches
+
+Run:
+
+```text
+./simulator examples/add.hex --trace
+```
+
+The trace prints:
+
+```text
+Cycle N:
+    IF/ID
+    ID/EX
+    EX/MEM
+    MEM/WB
+```
+
+This lets you watch instructions move through the pipeline one stage per cycle.
+It is useful for explaining stalls, bubbles, flushes, and pipeline drain in an
+interview.

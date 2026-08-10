@@ -729,11 +729,31 @@ main:
     while retired instructions < program instruction count:
         if clock_cycles reached max_cycles:
             stop with failure
+        if trace is enabled:
+            print current pipeline latches
         run_pipeline_cycle(cpu, pipeline)
 
     print registers
     print stats
 ```
+
+## Pipeline Trace
+
+```text
+print_pipeline_trace(cpu, pipeline):
+    print cpu.stats.clock_cycles
+
+    for each latch in IF/ID, ID/EX, EX/MEM, MEM/WB:
+        if latch is invalid:
+            print "bubble"
+        else:
+            decode latch.instruction
+            print latch name, PC, raw instruction, instruction name
+```
+
+Hardware rationale: trace output is an observation tool. It does not change the
+pipeline state; it simply prints the current latch contents before the next
+clock cycle updates them.
 
 ## Cycle Accounting
 

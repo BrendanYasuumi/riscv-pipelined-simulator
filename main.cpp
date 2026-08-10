@@ -11,6 +11,7 @@
 #include "config.hpp"
 #include "cpu.hpp"
 #include "pipeline_registers.hpp"
+#include "pipeline_trace.hpp"
 #include "program_loader.hpp"
 #include "stages.hpp"
 
@@ -25,6 +26,7 @@ struct CliOptions {
     rv32i::Config config{};
     std::string program_path;
     uint64_t max_cycles = 100;
+    bool trace = false;
     bool show_help = false;
 };
 
@@ -87,6 +89,8 @@ CliOptions parse_cli(int argc, char* argv[]) {
 
         if (arg == "--help" || arg == "-h") {
             options.show_help = true;
+        } else if (arg == "--trace") {
+            options.trace = true;
         } else if (arg == "--no-forwarding") {
             options.config.enable_forwarding = false;
         } else if (arg.rfind("--memory-latency=", 0) == 0) {
@@ -134,6 +138,7 @@ void print_usage(const char* executable) {
     std::cout << "  --memory-latency=N\n";
     std::cout << "  --branch-predictor=always-not-taken|always-taken|two-bit\n";
     std::cout << "  --max-cycles=N\n";
+    std::cout << "  --trace\n";
     std::cout << "  --help\n";
 }
 
@@ -211,6 +216,9 @@ int main(int argc, char* argv[]) {
 
         while (cpu.stats().instruction_count < program.instruction_count &&
                cpu.stats().clock_cycles < options.max_cycles) {
+            if (options.trace) {
+                rv32i::print_pipeline_trace(std::cout, cpu, pipeline);
+            }
             rv32i::run_pipeline_cycle(cpu, pipeline);
         }
 

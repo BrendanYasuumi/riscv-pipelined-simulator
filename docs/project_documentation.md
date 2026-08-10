@@ -637,6 +637,71 @@ hex loader parsing
 always-taken branch prediction
 ```
 
+## Step 11: RV32I Execution Tests and Pipeline Trace Output
+
+### Files
+
+```text
+tests/simulator_tests.cpp
+include/pipeline_trace.hpp
+src/pipeline_trace.cpp
+main.cpp
+README.md
+```
+
+### What We Built
+
+We expanded the test suite from infrastructure checks into instruction execution
+coverage. We also added a `--trace` option that prints the contents of each
+pipeline latch at the start of every cycle.
+
+### Problem
+
+The simulator could decode and run simple programs, but more instruction
+families needed explicit regression coverage. Also, final register values alone
+do not show how instructions moved through the pipeline.
+
+### Solution
+
+We added test-local instruction encoders and wrote execution tests for:
+
+```text
+R-type ALU operations
+I-type ALU operations
+loads and stores
+signed and unsigned loads
+LUI
+AUIPC
+BEQ/BNE behavior
+JAL
+JALR
+```
+
+We added trace output:
+
+```text
+./simulator examples/add.hex --trace
+```
+
+### Why This Solution
+
+The tests protect architectural correctness. The trace output helps explain
+cycle-by-cycle timing, which is valuable for debugging and for interviews.
+
+### What `.hex` Programs Are
+
+A `.hex` file is a plain text machine-code program. Each non-comment line is a
+single 32-bit instruction word:
+
+```text
+00500093
+00700113
+002081b3
+```
+
+This is not assembly. It is already-encoded instruction data. The loader turns
+each hex word into four little-endian bytes in simulated memory.
+
 ## Current Demo Program
 
 The current demo program is:
@@ -689,6 +754,10 @@ include/stages.hpp
 src/stages.cpp
     Five pipeline stages and the cycle runner.
 
+include/pipeline_trace.hpp
+src/pipeline_trace.cpp
+    Per-cycle pipeline latch trace output.
+
 include/program_loader.hpp
 src/program_loader.cpp
     Hex program loading.
@@ -721,8 +790,8 @@ docs/learning_notes.md
 
 ## Recommended Next Steps
 
-1. Add more RV32I instruction execution tests.
-2. Add a binary loader for raw `.bin` files.
-3. Add richer branch predictor tests.
-4. Add simple assembly-to-hex examples in `examples/`.
-5. Add README quick-start instructions.
+1. Add a binary loader for raw `.bin` files.
+2. Add richer branch predictor tests.
+3. Add simple assembly-to-hex examples in `examples/`.
+4. Add README diagrams.
+5. Add cache modeling hooks.
