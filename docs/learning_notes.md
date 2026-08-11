@@ -450,3 +450,50 @@ Cycle N:
 This lets you watch instructions move through the pipeline one stage per cycle.
 It is useful for explaining stalls, bubbles, flushes, and pipeline drain in an
 interview.
+
+## Runnable Architecture Examples
+
+### What changed
+
+- Added more `.hex` example programs.
+- Added `--retire-count=N` so branch programs can stop after the instructions
+  that actually retire.
+
+### Why `--retire-count` matters
+
+For straight-line programs, the simulator can usually retire one instruction for
+each line in the `.hex` file.
+
+Branches are different. A taken branch may skip over a line in the file:
+
+```text
+beq x0, x0, +8
+addi x1, x0, 1   # skipped
+addi x1, x0, 2   # executed
+```
+
+The file has three instruction words, but only two instructions should retire.
+That is why the branch example uses:
+
+```text
+./simulator examples/branch_taken.hex --retire-count=2 --trace
+```
+
+### Current examples
+
+```text
+examples/add.hex
+    Basic ALU dependency with forwarding.
+
+examples/load_use.hex
+    Demonstrates the remaining one-cycle load-use stall.
+
+examples/branch_taken.hex
+    Demonstrates branch prediction and wrong-path flushing.
+
+examples/memory_latency.hex
+    Demonstrates multi-cycle memory stalls.
+
+examples/no_forwarding_demo.hex
+    Demonstrates extra RAW stalls when forwarding is disabled.
+```

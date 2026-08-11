@@ -150,6 +150,12 @@ Set a max cycle limit:
 ./simulator examples/add.hex --max-cycles=500
 ```
 
+Override the number of instructions to retire before stopping:
+
+```bash
+./simulator examples/branch_taken.hex --retire-count=2
+```
+
 Print a per-cycle pipeline trace:
 
 ```bash
@@ -192,6 +198,39 @@ For example, the line `00500093` represents the instruction word
 
 ```text
 93 00 50 00
+```
+
+## Runnable Examples
+
+Basic ALU dependency with forwarding:
+
+```bash
+./simulator examples/add.hex
+```
+
+Load-use hazard:
+
+```bash
+./simulator examples/load_use.hex
+```
+
+Taken branch with trace output:
+
+```bash
+./simulator examples/branch_taken.hex --retire-count=2 --trace
+```
+
+Multi-cycle memory latency:
+
+```bash
+./simulator examples/memory_latency.hex --memory-latency=4
+```
+
+Forwarding vs. no forwarding:
+
+```bash
+./simulator examples/no_forwarding_demo.hex
+./simulator examples/no_forwarding_demo.hex --no-forwarding
 ```
 
 ## Example Output
@@ -287,7 +326,11 @@ tests/simulator_tests.cpp
     Assertion-based behavior tests.
 
 examples/add.hex
-    Small sample machine-code program.
+examples/load_use.hex
+examples/branch_taken.hex
+examples/memory_latency.hex
+examples/no_forwarding_demo.hex
+    Small sample machine-code programs for architecture experiments.
 
 docs/
     Pseudocode, learning notes, and detailed project documentation.

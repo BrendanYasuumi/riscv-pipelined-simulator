@@ -26,6 +26,8 @@ struct CliOptions {
     rv32i::Config config{};
     std::string program_path;
     uint64_t max_cycles = 100;
+    uint64_t retire_count = 0;
+    bool has_retire_count = false;
     bool trace = false;
     bool show_help = false;
 };
@@ -103,6 +105,9 @@ CliOptions parse_cli(int argc, char* argv[]) {
                 static_cast<uint32_t>(value);
         } else if (arg.rfind("--max-cycles=", 0) == 0) {
             options.max_cycles = parse_u64(arg.substr(13), "--max-cycles");
+        } else if (arg.rfind("--retire-count=", 0) == 0) {
+            options.retire_count = parse_u64(arg.substr(15), "--retire-count");
+            options.has_retire_count = true;
         } else if (arg.rfind("--branch-predictor=", 0) == 0) {
             options.config.branch_predictor_type =
                 parse_branch_predictor(arg.substr(19));
@@ -138,6 +143,7 @@ void print_usage(const char* executable) {
     std::cout << "  --memory-latency=N\n";
     std::cout << "  --branch-predictor=always-not-taken|always-taken|two-bit\n";
     std::cout << "  --max-cycles=N\n";
+    std::cout << "  --retire-count=N\n";
     std::cout << "  --trace\n";
     std::cout << "  --help\n";
 }
@@ -214,7 +220,11 @@ int main(int argc, char* argv[]) {
 
         print_config(cpu.config(), options.max_cycles);
 
-        while (cpu.stats().instruction_count < program.instruction_count &&
+        const uint64_t target_retired = options.has_retire_count
+                                            ? options.retire_count
+                                            : program.instruction_count;
+
+        while (cpu.stats().instruction_count < target_retired &&
                cpu.stats().clock_cycles < options.max_cycles) {
             if (options.trace) {
                 rv32i::print_pipeline_trace(std::cout, cpu, pipeline);
@@ -225,7 +235,7 @@ int main(int argc, char* argv[]) {
         print_registers(cpu);
         print_stats(cpu);
 
-        if (cpu.stats().instruction_count < program.instruction_count) {
+        if (cpu.stats().instruction_count < target_retired) {
             std::cerr << "\nSimulation stopped before all instructions retired\n";
             return EXIT_FAILURE;
         }

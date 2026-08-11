@@ -702,6 +702,60 @@ single 32-bit instruction word:
 This is not assembly. It is already-encoded instruction data. The loader turns
 each hex word into four little-endian bytes in simulated memory.
 
+## Step 12: Runnable Architecture Examples
+
+### Files
+
+```text
+examples/load_use.hex
+examples/branch_taken.hex
+examples/memory_latency.hex
+examples/no_forwarding_demo.hex
+main.cpp
+README.md
+```
+
+### What We Built
+
+We added runnable examples that demonstrate specific architectural behavior:
+
+```text
+load-use stalls
+branch flushing
+multi-cycle memory stalls
+forwarding vs. no forwarding
+```
+
+We also added:
+
+```text
+--retire-count=N
+```
+
+### Problem
+
+Straight-line programs can stop after retiring one instruction for every line in
+the `.hex` file. Branch programs may intentionally skip instructions, so the
+number of retired instructions can be smaller than the number of instruction
+words in the file.
+
+### Solution
+
+`--retire-count=N` lets branch examples specify the expected number of retired
+instructions.
+
+Example:
+
+```text
+./simulator examples/branch_taken.hex --retire-count=2 --trace
+```
+
+### Why This Solution
+
+It keeps the hex format simple while still allowing control-flow examples. A
+future richer program format could include metadata, but this option is enough
+for small architecture demos.
+
 ## Current Demo Program
 
 The current demo program is:
@@ -766,7 +820,11 @@ tests/simulator_tests.cpp
     Assertion-based simulator behavior tests.
 
 examples/add.hex
-    Small external hex program for the default add dependency example.
+examples/load_use.hex
+examples/branch_taken.hex
+examples/memory_latency.hex
+examples/no_forwarding_demo.hex
+    Small external hex programs for architecture demonstrations.
 
 main.cpp
     Demo simulator entry point.
@@ -792,6 +850,6 @@ docs/learning_notes.md
 
 1. Add a binary loader for raw `.bin` files.
 2. Add richer branch predictor tests.
-3. Add simple assembly-to-hex examples in `examples/`.
+3. Add simple assembly-to-hex comments for more examples.
 4. Add README diagrams.
 5. Add cache modeling hooks.

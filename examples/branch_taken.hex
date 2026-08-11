@@ -1,0 +1,12 @@
+# Demonstrates a taken branch and wrong-path flush.
+# Run with: ./simulator examples/branch_taken.hex --retire-count=2 --trace
+
+# beq x0, x0, +8
+00000463
+
+# addi x1, x0, 1
+# This instruction is on the not-taken path and should be flushed.
+00100093
+
+# addi x1, x0, 2
+00200093

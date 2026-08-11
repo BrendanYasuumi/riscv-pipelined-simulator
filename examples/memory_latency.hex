@@ -1,0 +1,8 @@
+# Demonstrates multi-cycle memory stalls with --memory-latency=N.
+# Run with: ./simulator examples/memory_latency.hex --memory-latency=4
+
+# lw x1, 8(x0)
+00802083
+
+# addi x2, x0, 1
+00100113

@@ -1,0 +1,8 @@
+# Demonstrates a load-use hazard.
+# The add immediately consumes x1 loaded by the previous lw.
+
+# lw x1, 8(x0)
+00802083
+
+# add x2, x1, x1
+00108133

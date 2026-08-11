@@ -725,8 +725,9 @@ main:
     load built-in demo or external hex program
     create CPU with selected Config
     load program bytes into memory
+    target_retired = retire-count option or loaded instruction count
 
-    while retired instructions < program instruction count:
+    while retired instructions < target_retired:
         if clock_cycles reached max_cycles:
             stop with failure
         if trace is enabled:
