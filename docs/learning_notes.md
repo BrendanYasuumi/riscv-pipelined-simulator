@@ -451,6 +451,78 @@ This lets you watch instructions move through the pipeline one stage per cycle.
 It is useful for explaining stalls, bubbles, flushes, and pipeline drain in an
 interview.
 
+## Binary Loader, CSV Trace, Branch Tests, and Encoding Guide
+
+### What changed
+
+- Added raw `.bin` program loading.
+- Added `--format=auto|hex|bin`.
+- Added `--trace-csv=PATH`.
+- Added richer branch predictor tests.
+- Added an RV32I instruction encoding guide.
+
+### `.hex` versus `.bin`
+
+`.hex` is text:
+
+```text
+00500093
+00700113
+002081b3
+```
+
+`.bin` is raw bytes:
+
+```text
+93 00 50 00 13 01 70 00 b3 81 20 00
+```
+
+The `.hex` format is easier for humans to read and edit. The `.bin` format is
+closer to what a toolchain or binary emitter would produce.
+
+### Why CSV trace matters
+
+Text trace is good for reading in the terminal:
+
+```text
+./simulator examples/add.hex --trace
+```
+
+CSV trace is better for tooling:
+
+```text
+./simulator examples/add.hex --trace-csv=trace.csv
+```
+
+CSV rows can be loaded into a spreadsheet or plotted later:
+
+```text
+cycle,pc,if_id,id_ex,ex_mem,mem_wb,retired,stalls,branch_mispredictions
+```
+
+### Why branch predictor tests matter
+
+Branch prediction bugs can hide because the final result may still eventually
+be correct after a flush. Tests now check both correct predictions and
+mispredictions, plus direct 2-bit counter updates.
+
+### Encoding guide
+
+The new encoding guide explains how instructions like:
+
+```text
+addi x1, x0, 5
+```
+
+become:
+
+```text
+00500093
+```
+
+That is the missing bridge between assembly language and the `.hex` files this
+simulator loads.
+
 ## Runnable Architecture Examples
 
 ### What changed

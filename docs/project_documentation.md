@@ -756,6 +756,60 @@ It keeps the hex format simple while still allowing control-flow examples. A
 future richer program format could include metadata, but this option is enough
 for small architecture demos.
 
+## Step 13: Binary Loader, CSV Trace, Branch Tests, and Encoding Guide
+
+### Files
+
+```text
+include/program_loader.hpp
+src/program_loader.cpp
+include/pipeline_trace.hpp
+src/pipeline_trace.cpp
+tests/simulator_tests.cpp
+docs/instruction_encoding_guide.md
+README.md
+main.cpp
+```
+
+### What We Built
+
+New capabilities:
+
+```text
+raw .bin program loading
+--format=auto|hex|bin
+--trace-csv=PATH
+richer branch predictor tests
+instruction encoding guide
+```
+
+### Problem
+
+The simulator could run `.hex` programs, but `.hex` is a teaching-friendly text
+format rather than a raw byte format. Trace output was also terminal-only, which
+made it harder to analyze with external tools.
+
+### Solution
+
+We added a raw binary loader and automatic format inference by extension:
+
+```text
+.hex -> text hex loader
+.bin -> raw binary loader
+```
+
+We also added CSV trace export:
+
+```text
+./simulator examples/add.hex --trace-csv=trace.csv
+```
+
+### Why This Solution
+
+Binary loading moves the simulator closer to toolchain integration. CSV trace
+keeps terminal output clean while enabling spreadsheet or plotting workflows.
+The encoding guide documents how hand-written examples are created.
+
 ## Current Demo Program
 
 The current demo program is:
@@ -810,11 +864,11 @@ src/stages.cpp
 
 include/pipeline_trace.hpp
 src/pipeline_trace.cpp
-    Per-cycle pipeline latch trace output.
+    Per-cycle text and CSV pipeline latch trace output.
 
 include/program_loader.hpp
 src/program_loader.cpp
-    Hex program loading.
+    Hex and raw binary program loading.
 
 tests/simulator_tests.cpp
     Assertion-based simulator behavior tests.
@@ -837,19 +891,22 @@ docs/pseudocode.md
 
 docs/learning_notes.md
     Learning notes for each implementation milestone.
+
+docs/instruction_encoding_guide.md
+    Guide for converting small RV32I assembly examples into instruction words.
 ```
 
 ## Known Limitations
 
-- No external ELF or binary loader yet.
+- No external ELF loader yet.
 - No assembler support yet.
 - Branch predictor is small and direct-mapped.
 - JALR cannot be predicted in IF because its target depends on a register value.
 
 ## Recommended Next Steps
 
-1. Add a binary loader for raw `.bin` files.
-2. Add richer branch predictor tests.
-3. Add simple assembly-to-hex comments for more examples.
-4. Add README diagrams.
+1. Add README diagrams.
+2. Add more example programs.
+3. Add external RISC-V toolchain integration notes.
+4. Add optional instruction/memory dumps.
 5. Add cache modeling hooks.

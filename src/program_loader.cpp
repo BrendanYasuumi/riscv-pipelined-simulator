@@ -2,6 +2,7 @@
 
 #include <cctype>
 #include <fstream>
+#include <iterator>
 #include <stdexcept>
 #include <string>
 
@@ -30,6 +31,13 @@ void append_word_little_endian(std::vector<uint8_t>& bytes, uint32_t word) {
     bytes.push_back(static_cast<uint8_t>((word >> 8) & 0xFFu));
     bytes.push_back(static_cast<uint8_t>((word >> 16) & 0xFFu));
     bytes.push_back(static_cast<uint8_t>((word >> 24) & 0xFFu));
+}
+
+bool has_extension(const std::string& path, const std::string& extension) {
+    return path.size() >= extension.size() &&
+           path.compare(path.size() - extension.size(),
+                        extension.size(),
+                        extension) == 0;
 }
 
 }  // namespace
@@ -84,6 +92,52 @@ LoadedProgram load_hex_program(const std::string& path) {
     }
 
     return program;
+}
+
+LoadedProgram load_binary_program(const std::string& path) {
+    std::ifstream input(path, std::ios::binary);
+    if (!input) {
+        throw std::runtime_error("failed to open binary program: " + path);
+    }
+
+    LoadedProgram program{};
+    program.bytes.assign(std::istreambuf_iterator<char>(input),
+                         std::istreambuf_iterator<char>());
+
+    if (program.bytes.empty()) {
+        throw std::runtime_error("binary program contains no instructions");
+    }
+    if (program.bytes.size() % sizeof(uint32_t) != 0) {
+        throw std::runtime_error(
+            "binary program byte count must be a multiple of 4");
+    }
+
+    program.instruction_count = program.bytes.size() / sizeof(uint32_t);
+    return program;
+}
+
+LoadedProgram load_program(const std::string& path, ProgramFormat format) {
+    if (format == ProgramFormat::Auto) {
+        if (has_extension(path, ".hex")) {
+            format = ProgramFormat::Hex;
+        } else if (has_extension(path, ".bin")) {
+            format = ProgramFormat::Binary;
+        } else {
+            throw std::runtime_error(
+                "cannot infer program format; use --format=hex or --format=bin");
+        }
+    }
+
+    switch (format) {
+        case ProgramFormat::Hex:
+            return load_hex_program(path);
+        case ProgramFormat::Binary:
+            return load_binary_program(path);
+        case ProgramFormat::Auto:
+            break;
+    }
+
+    throw std::runtime_error("invalid program format");
 }
 
 }  // namespace rv32i

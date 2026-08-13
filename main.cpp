@@ -1,6 +1,7 @@
 #include <array>
 #include <cstdint>
 #include <cstdlib>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <stdexcept>
@@ -24,7 +25,9 @@ struct DemoInstruction {
 
 struct CliOptions {
     rv32i::Config config{};
+    rv32i::ProgramFormat program_format = rv32i::ProgramFormat::Auto;
     std::string program_path;
+    std::string trace_csv_path;
     uint64_t max_cycles = 100;
     uint64_t retire_count = 0;
     bool has_retire_count = false;
@@ -83,6 +86,20 @@ rv32i::BranchPredictorType parse_branch_predictor(std::string_view value) {
     throw std::runtime_error("invalid branch predictor type");
 }
 
+rv32i::ProgramFormat parse_program_format(std::string_view value) {
+    if (value == "auto") {
+        return rv32i::ProgramFormat::Auto;
+    }
+    if (value == "hex") {
+        return rv32i::ProgramFormat::Hex;
+    }
+    if (value == "bin") {
+        return rv32i::ProgramFormat::Binary;
+    }
+
+    throw std::runtime_error("invalid program format");
+}
+
 CliOptions parse_cli(int argc, char* argv[]) {
     CliOptions options{};
 
@@ -93,6 +110,11 @@ CliOptions parse_cli(int argc, char* argv[]) {
             options.show_help = true;
         } else if (arg == "--trace") {
             options.trace = true;
+        } else if (arg.rfind("--trace-csv=", 0) == 0) {
+            options.trace_csv_path = std::string(arg.substr(12));
+            if (options.trace_csv_path.empty()) {
+                throw std::runtime_error("trace CSV path cannot be empty");
+            }
         } else if (arg == "--no-forwarding") {
             options.config.enable_forwarding = false;
         } else if (arg.rfind("--memory-latency=", 0) == 0) {
@@ -111,6 +133,8 @@ CliOptions parse_cli(int argc, char* argv[]) {
         } else if (arg.rfind("--branch-predictor=", 0) == 0) {
             options.config.branch_predictor_type =
                 parse_branch_predictor(arg.substr(19));
+        } else if (arg.rfind("--format=", 0) == 0) {
+            options.program_format = parse_program_format(arg.substr(9));
         } else if (!arg.empty() && arg[0] == '-') {
             throw std::runtime_error("unknown option: " + std::string(arg));
         } else if (options.program_path.empty()) {
@@ -137,14 +161,17 @@ const char* branch_predictor_name(rv32i::BranchPredictorType type) {
 }
 
 void print_usage(const char* executable) {
-    std::cout << "Usage: " << executable << " [program.hex] [options]\n\n";
+    std::cout << "Usage: " << executable
+              << " [program.hex|program.bin] [options]\n\n";
     std::cout << "Options:\n";
     std::cout << "  --no-forwarding\n";
     std::cout << "  --memory-latency=N\n";
     std::cout << "  --branch-predictor=always-not-taken|always-taken|two-bit\n";
+    std::cout << "  --format=auto|hex|bin\n";
     std::cout << "  --max-cycles=N\n";
     std::cout << "  --retire-count=N\n";
     std::cout << "  --trace\n";
+    std::cout << "  --trace-csv=PATH\n";
     std::cout << "  --help\n";
 }
 
@@ -208,8 +235,10 @@ int main(int argc, char* argv[]) {
             program = make_demo_program();
             print_demo_program();
         } else {
-            program = rv32i::load_hex_program(options.program_path);
-            std::cout << "Loaded hex program: " << options.program_path
+            program =
+                rv32i::load_program(options.program_path,
+                                    options.program_format);
+            std::cout << "Loaded program: " << options.program_path
                       << " (" << program.instruction_count
                       << " instruction(s))\n";
         }
@@ -220,6 +249,16 @@ int main(int argc, char* argv[]) {
 
         print_config(cpu.config(), options.max_cycles);
 
+        std::ofstream csv_trace;
+        if (!options.trace_csv_path.empty()) {
+            csv_trace.open(options.trace_csv_path);
+            if (!csv_trace) {
+                throw std::runtime_error("failed to open trace CSV: " +
+                                         options.trace_csv_path);
+            }
+            rv32i::write_pipeline_trace_csv_header(csv_trace);
+        }
+
         const uint64_t target_retired = options.has_retire_count
                                             ? options.retire_count
                                             : program.instruction_count;
@@ -228,6 +267,9 @@ int main(int argc, char* argv[]) {
                cpu.stats().clock_cycles < options.max_cycles) {
             if (options.trace) {
                 rv32i::print_pipeline_trace(std::cout, cpu, pipeline);
+            }
+            if (csv_trace) {
+                rv32i::write_pipeline_trace_csv_row(csv_trace, cpu, pipeline);
             }
             rv32i::run_pipeline_cycle(cpu, pipeline);
         }

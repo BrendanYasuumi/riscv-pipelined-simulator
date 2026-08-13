@@ -616,6 +616,38 @@ load_hex_program(path):
 Hardware rationale: the simulator memory is byte-addressable, but the easiest
 human-editable program format is one 32-bit instruction word per line.
 
+```text
+load_binary_program(path):
+    open file in binary mode
+    read every byte into program bytes
+
+    if byte count is zero:
+        error
+
+    if byte count is not divisible by 4:
+        error
+
+    instruction_count = byte_count / 4
+    return program bytes and instruction count
+```
+
+```text
+load_program(path, format):
+    if format is auto:
+        if path ends in ".hex":
+            use hex loader
+        else if path ends in ".bin":
+            use binary loader
+        else:
+            error and ask user for --format
+
+    if format is hex:
+        return load_hex_program(path)
+
+    if format is bin:
+        return load_binary_program(path)
+```
+
 ## Branch Prediction
 
 ```text
@@ -755,6 +787,27 @@ print_pipeline_trace(cpu, pipeline):
 Hardware rationale: trace output is an observation tool. It does not change the
 pipeline state; it simply prints the current latch contents before the next
 clock cycle updates them.
+
+```text
+write_pipeline_trace_csv_header(output):
+    write:
+        cycle, pc, if_id, id_ex, ex_mem, mem_wb,
+        retired, stalls, branch_mispredictions
+```
+
+```text
+write_pipeline_trace_csv_row(cpu, pipeline):
+    write current clock cycle
+    write current PC
+    write instruction name or bubble for each latch
+    write retired instruction count
+    write stall count
+    write branch misprediction count
+```
+
+CSV trace rationale: text trace is optimized for humans reading the terminal.
+CSV trace is optimized for external tools such as spreadsheets, plotting
+scripts, or future visualizers.
 
 ## Cycle Accounting
 

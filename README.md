@@ -124,6 +124,13 @@ Run an external hex program:
 ./simulator examples/add.hex
 ```
 
+Run a raw binary program:
+
+```bash
+./simulator program.bin
+./simulator --format=bin program.bin
+```
+
 Disable forwarding:
 
 ```bash
@@ -142,6 +149,12 @@ Select branch predictor:
 ./simulator examples/add.hex --branch-predictor=always-not-taken
 ./simulator examples/add.hex --branch-predictor=always-taken
 ./simulator examples/add.hex --branch-predictor=two-bit
+```
+
+Export a CSV pipeline trace:
+
+```bash
+./simulator examples/add.hex --trace-csv=trace.csv
 ```
 
 Set a max cycle limit:
@@ -200,6 +213,22 @@ For example, the line `00500093` represents the instruction word
 93 00 50 00
 ```
 
+For a deeper walkthrough of how assembly maps to these 32-bit words, see
+[`docs/instruction_encoding_guide.md`](docs/instruction_encoding_guide.md).
+
+## Binary Program Format
+
+Raw `.bin` programs contain the bytes exactly as they should appear in
+simulated memory. The byte count must be a multiple of four because this
+simulator currently treats each loaded word as one 32-bit RV32I instruction.
+
+Format selection is automatic for `.hex` and `.bin` paths, or explicit:
+
+```bash
+./simulator --format=hex examples/add.hex
+./simulator --format=bin program.bin
+```
+
 ## Runnable Examples
 
 Basic ALU dependency with forwarding:
@@ -244,7 +273,7 @@ Running:
 Produces output similar to:
 
 ```text
-Loaded hex program: examples/add.hex (3 instruction(s))
+Loaded program: examples/add.hex (3 instruction(s))
 
 Configuration:
   Forwarding:       enabled
@@ -316,11 +345,11 @@ src/stages.cpp
 
 include/pipeline_trace.hpp
 src/pipeline_trace.cpp
-    Optional per-cycle pipeline latch tracing.
+    Optional per-cycle text and CSV pipeline latch tracing.
 
 include/program_loader.hpp
 src/program_loader.cpp
-    External .hex program loader.
+    External .hex and raw .bin program loaders.
 
 tests/simulator_tests.cpp
     Assertion-based behavior tests.
@@ -334,6 +363,7 @@ examples/no_forwarding_demo.hex
 
 docs/
     Pseudocode, learning notes, and detailed project documentation.
+    Includes an RV32I instruction encoding guide.
 ```
 
 ## Tests
@@ -361,7 +391,11 @@ Current tests cover:
 - Load-use hazard stall behavior
 - Multi-cycle memory latency stalls
 - Hex loader parsing
+- Binary loader parsing
 - Always-taken branch prediction behavior
+- Always-taken misprediction behavior
+- 2-bit branch predictor counter behavior
+- CSV trace formatting
 
 ## Current Limitations
 
@@ -374,11 +408,9 @@ Current tests cover:
 
 ## Roadmap
 
-- Add raw binary program loading.
-- Add more example programs.
-- Add richer branch prediction tests.
 - Add README diagrams.
 - Add cache modeling hooks using the existing memory-latency interface.
+- Add an assembler or integration notes for external RISC-V toolchains.
 
 ## Design Notes
 

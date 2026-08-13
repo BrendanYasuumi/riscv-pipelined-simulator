@@ -1,13 +1,15 @@
 #include <cassert>
 #include <cstdint>
 #include <fstream>
-#include <vector>
+#include <sstream>
 #include <string>
+#include <vector>
 
 #include "cpu.hpp"
 #include "decoder.hpp"
 #include "instruction.hpp"
 #include "pipeline_registers.hpp"
+#include "pipeline_trace.hpp"
 #include "program_loader.hpp"
 #include "stages.hpp"
 
@@ -364,6 +366,42 @@ void test_hex_loader() {
     assert(program.bytes[3] == 0x00);
 }
 
+void test_binary_loader() {
+    const std::string path = "/tmp/rv32i_loader_test.bin";
+    {
+        std::ofstream output(path, std::ios::binary);
+        const char bytes[] = {
+            static_cast<char>(0x93),
+            static_cast<char>(0x00),
+            static_cast<char>(0x50),
+            static_cast<char>(0x00),
+            static_cast<char>(0x13),
+            static_cast<char>(0x01),
+            static_cast<char>(0x70),
+            static_cast<char>(0x00),
+        };
+        output.write(bytes, sizeof(bytes));
+    }
+
+    const rv32i::LoadedProgram program = rv32i::load_binary_program(path);
+    assert(program.instruction_count == 2);
+    assert(program.bytes.size() == 8);
+    assert(program.bytes[0] == 0x93);
+    assert(program.bytes[4] == 0x13);
+}
+
+void test_auto_loader_infers_hex_and_binary() {
+    const rv32i::LoadedProgram hex =
+        rv32i::load_program("/tmp/rv32i_loader_test.hex",
+                            rv32i::ProgramFormat::Auto);
+    const rv32i::LoadedProgram bin =
+        rv32i::load_program("/tmp/rv32i_loader_test.bin",
+                            rv32i::ProgramFormat::Auto);
+
+    assert(hex.instruction_count == 2);
+    assert(bin.instruction_count == 2);
+}
+
 void test_always_taken_branch_prediction() {
     rv32i::Config config{};
     config.branch_predictor_type = rv32i::BranchPredictorType::AlwaysTaken;
@@ -378,6 +416,53 @@ void test_always_taken_branch_prediction() {
 
     assert(cpu.read_reg(1) == 2);
     assert(cpu.stats().branch_mispredictions == 0);
+}
+
+void test_always_taken_mispredicts_not_taken_branch() {
+    rv32i::Config config{};
+    config.branch_predictor_type = rv32i::BranchPredictorType::AlwaysTaken;
+
+    const rv32i::CPU cpu = run_program({
+        encode_b(8, 0, 0, 0x1),           // bne x0, x0, +8, not taken
+        encode_i(1, 0, 0x0, 2),           // addi x2, x0, 1
+        encode_i(2, 0, 0x0, 3),           // addi x3, x0, 2
+    }, 3, config);
+
+    assert(cpu.read_reg(2) == 1);
+    assert(cpu.read_reg(3) == 2);
+    assert(cpu.stats().branch_mispredictions == 1);
+}
+
+void test_two_bit_predictor_counter_updates() {
+    rv32i::Config config{};
+    config.branch_predictor_type =
+        rv32i::BranchPredictorType::TwoBitSaturatingCounter;
+    rv32i::CPU cpu(64, config);
+
+    assert(!cpu.predict_branch(0));
+    cpu.update_branch_predictor(0, true);
+    assert(cpu.predict_branch(0));
+    cpu.update_branch_predictor(0, true);
+    assert(cpu.predict_branch(0));
+    cpu.update_branch_predictor(0, false);
+    assert(cpu.predict_branch(0));
+    cpu.update_branch_predictor(0, false);
+    assert(!cpu.predict_branch(0));
+}
+
+void test_pipeline_trace_csv_output() {
+    rv32i::CPU cpu(64);
+    rv32i::PipelineRegisters pipeline;
+    std::ostringstream output;
+
+    rv32i::write_pipeline_trace_csv_header(output);
+    rv32i::write_pipeline_trace_csv_row(output, cpu, pipeline);
+
+    const std::string csv = output.str();
+    assert(csv.find("cycle,pc,if_id,id_ex,ex_mem,mem_wb") !=
+           std::string::npos);
+    assert(csv.find("0,0,bubble,bubble,bubble,bubble") !=
+           std::string::npos);
 }
 
 }  // namespace
@@ -400,6 +485,11 @@ int main() {
     test_load_use_still_stalls_once_with_forwarding();
     test_memory_latency_adds_stalls();
     test_hex_loader();
+    test_binary_loader();
+    test_auto_loader_infers_hex_and_binary();
     test_always_taken_branch_prediction();
+    test_always_taken_mispredicts_not_taken_branch();
+    test_two_bit_predictor_counter_updates();
+    test_pipeline_trace_csv_output();
     return 0;
 }
