@@ -11,6 +11,7 @@
 #include "pipeline_registers.hpp"
 #include "pipeline_trace.hpp"
 #include "program_loader.hpp"
+#include "state_dump.hpp"
 #include "stages.hpp"
 
 namespace {
@@ -465,6 +466,33 @@ void test_pipeline_trace_csv_output() {
            std::string::npos);
 }
 
+void test_register_dump_formatting() {
+    rv32i::CPU cpu(64);
+    cpu.write_reg(1, 5);
+    cpu.write_reg(31, 0xFFFFFFFFu);
+
+    std::ostringstream output;
+    rv32i::print_register_dump(output, cpu);
+
+    const std::string text = output.str();
+    assert(text.find("Register dump:") != std::string::npos);
+    assert(text.find("x01 = 0x00000005 (5)") != std::string::npos);
+    assert(text.find("x31 = 0xffffffff (4294967295)") != std::string::npos);
+}
+
+void test_memory_dump_formatting() {
+    rv32i::CPU cpu(64);
+    cpu.write_u32(0, 0x00500093u);
+
+    std::ostringstream output;
+    rv32i::print_memory_dump(output, cpu, 0, 4);
+
+    const std::string text = output.str();
+    assert(text.find("Memory dump [0x00000000..0x00000004):") !=
+           std::string::npos);
+    assert(text.find("0x00000000: 93 00 50 00") != std::string::npos);
+}
+
 }  // namespace
 
 int main() {
@@ -491,5 +519,7 @@ int main() {
     test_always_taken_mispredicts_not_taken_branch();
     test_two_bit_predictor_counter_updates();
     test_pipeline_trace_csv_output();
+    test_register_dump_formatting();
+    test_memory_dump_formatting();
     return 0;
 }

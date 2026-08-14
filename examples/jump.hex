@@ -1,0 +1,10 @@
+# jal x1, +8
+# x1 receives the return address PC+4, and the next addi is skipped.
+008000ef
+
+# addi x2, x0, 1
+# Wrong-path instruction if the jump is not handled correctly.
+00100113
+
+# addi x2, x0, 3
+00300113

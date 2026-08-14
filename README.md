@@ -37,8 +37,11 @@ branch prediction, memory latency, and performance metrics.
   - 2-bit saturating counter
 - Configurable memory latency
 - External `.hex` program loader
+- Raw `.bin` program loader
 - CLI configuration flags
 - Optional per-cycle pipeline trace output
+- Optional CSV trace output
+- Optional full register and memory window dumps
 - Execution metrics
   - Total cycles
   - Instructions retired
@@ -82,6 +85,58 @@ run_pipeline_cycle:
 
     commit next pipeline registers
     clock_cycles += 1
+```
+
+## Architecture Diagrams
+
+High-level datapath:
+
+```text
+        instruction word        decoded control        ALU result        memory data
+PC -> IF --------------> IF/ID -> ID ----------> ID/EX -> EX ----> EX/MEM -> MEM ----> MEM/WB -> WB
+^                                                                                              |
+|                                                                                              |
++--------------------------------------- next PC / branch redirect ----------------------------+
+```
+
+Pipeline latches:
+
+```text
+IF/ID:  fetched instruction + fetch PC
+ID/EX:  decoded fields + register operands + control signals
+EX/MEM: ALU result + store value + branch decision + memory controls
+MEM/WB: load data or ALU result + destination register + writeback controls
+```
+
+Forwarding paths:
+
+```text
+EX/MEM result ----+
+                 +----> EX operand muxes
+MEM/WB result ----+
+```
+
+Load-use stall:
+
+```text
+Cycle N:
+    load is in ID/EX
+    dependent consumer is in IF/ID
+
+Action:
+    freeze PC
+    freeze IF/ID
+    insert bubble into ID/EX
+```
+
+Branch misprediction recovery:
+
+```text
+EX resolves branch
+if predicted next PC was wrong:
+    redirect PC to actual target
+    flush younger wrong-path latch work
+    branch_mispredictions += 1
 ```
 
 ## Build
@@ -157,6 +212,19 @@ Export a CSV pipeline trace:
 ./simulator examples/add.hex --trace-csv=trace.csv
 ```
 
+Dump all architectural registers after simulation:
+
+```bash
+./simulator examples/add.hex --dump-regs
+```
+
+Dump a memory window after simulation:
+
+```bash
+./simulator examples/store_load.hex --dump-memory=64:16
+./simulator examples/store_load.hex --dump-memory=0x40:0x10
+```
+
 Set a max cycle limit:
 
 ```bash
@@ -229,6 +297,9 @@ Format selection is automatic for `.hex` and `.bin` paths, or explicit:
 ./simulator --format=bin program.bin
 ```
 
+For notes on assembling RV32I source with an external RISC-V toolchain, see
+[`docs/toolchain_workflow.md`](docs/toolchain_workflow.md).
+
 ## Runnable Examples
 
 Basic ALU dependency with forwarding:
@@ -260,6 +331,31 @@ Forwarding vs. no forwarding:
 ```bash
 ./simulator examples/no_forwarding_demo.hex
 ./simulator examples/no_forwarding_demo.hex --no-forwarding
+```
+
+Store followed by load:
+
+```bash
+./simulator examples/store_load.hex --dump-regs --dump-memory=64:16
+```
+
+JAL control-flow redirect:
+
+```bash
+./simulator examples/jump.hex --retire-count=2 --trace
+```
+
+Branch predictor comparison:
+
+```bash
+./simulator examples/branch_predictor.hex --retire-count=2
+./simulator examples/branch_predictor.hex --retire-count=2 --branch-predictor=always-taken
+```
+
+Shift and comparison operations:
+
+```bash
+./simulator examples/shift_compare.hex --dump-regs
 ```
 
 ## Example Output
@@ -351,6 +447,10 @@ include/program_loader.hpp
 src/program_loader.cpp
     External .hex and raw .bin program loaders.
 
+include/state_dump.hpp
+src/state_dump.cpp
+    Register and memory dump formatting helpers.
+
 tests/simulator_tests.cpp
     Assertion-based behavior tests.
 
@@ -359,11 +459,15 @@ examples/load_use.hex
 examples/branch_taken.hex
 examples/memory_latency.hex
 examples/no_forwarding_demo.hex
+examples/store_load.hex
+examples/jump.hex
+examples/branch_predictor.hex
+examples/shift_compare.hex
     Small sample machine-code programs for architecture experiments.
 
 docs/
     Pseudocode, learning notes, and detailed project documentation.
-    Includes an RV32I instruction encoding guide.
+    Includes an RV32I instruction encoding guide and toolchain workflow notes.
 ```
 
 ## Tests
@@ -396,6 +500,8 @@ Current tests cover:
 - Always-taken misprediction behavior
 - 2-bit branch predictor counter behavior
 - CSV trace formatting
+- Register dump formatting
+- Memory dump formatting
 
 ## Current Limitations
 
@@ -408,9 +514,9 @@ Current tests cover:
 
 ## Roadmap
 
-- Add README diagrams.
 - Add cache modeling hooks using the existing memory-latency interface.
-- Add an assembler or integration notes for external RISC-V toolchains.
+- Add an ELF loader or scripted integration with external RISC-V toolchains.
+- Add GitHub Actions CI for `make test`.
 
 ## Design Notes
 

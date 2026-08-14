@@ -810,6 +810,63 @@ Binary loading moves the simulator closer to toolchain integration. CSV trace
 keeps terminal output clean while enabling spreadsheet or plotting workflows.
 The encoding guide documents how hand-written examples are created.
 
+## Step 14: Presentation Polish, State Dumps, Examples, and Toolchain Notes
+
+### Files
+
+```text
+include/state_dump.hpp
+src/state_dump.cpp
+examples/store_load.hex
+examples/jump.hex
+examples/branch_predictor.hex
+examples/shift_compare.hex
+docs/toolchain_workflow.md
+README.md
+docs/pseudocode.md
+docs/learning_notes.md
+tests/simulator_tests.cpp
+main.cpp
+```
+
+### What We Built
+
+New capabilities:
+
+```text
+README architecture diagrams
+--dump-regs
+--dump-memory=START:LENGTH
+additional runnable architecture examples
+toolchain workflow notes
+dump formatting tests
+```
+
+### Problem
+
+The simulator could execute and trace programs, but users still needed a clean
+way to inspect final full CPU state and memory contents. The README also needed
+clearer architecture visuals for GitHub readers.
+
+### Solution
+
+We added a small state dump module and CLI options:
+
+```text
+./simulator examples/add.hex --dump-regs
+./simulator examples/store_load.hex --dump-memory=64:16
+```
+
+We added text diagrams to the README and documented a possible GNU RISC-V
+toolchain flow from assembly to raw binary.
+
+### Why This Solution
+
+State dump code lives outside `main.cpp`, so tests and future debug tools can
+reuse it. Text diagrams are portable in GitHub Markdown and do not require
+image assets. Toolchain notes make the project easier to grow beyond
+hand-written machine-code examples.
+
 ## Current Demo Program
 
 The current demo program is:
@@ -870,6 +927,10 @@ include/program_loader.hpp
 src/program_loader.cpp
     Hex and raw binary program loading.
 
+include/state_dump.hpp
+src/state_dump.cpp
+    Full register and memory window dump formatting.
+
 tests/simulator_tests.cpp
     Assertion-based simulator behavior tests.
 
@@ -878,6 +939,10 @@ examples/load_use.hex
 examples/branch_taken.hex
 examples/memory_latency.hex
 examples/no_forwarding_demo.hex
+examples/store_load.hex
+examples/jump.hex
+examples/branch_predictor.hex
+examples/shift_compare.hex
     Small external hex programs for architecture demonstrations.
 
 main.cpp
@@ -894,6 +959,9 @@ docs/learning_notes.md
 
 docs/instruction_encoding_guide.md
     Guide for converting small RV32I assembly examples into instruction words.
+
+docs/toolchain_workflow.md
+    Notes for using external RISC-V assembler tools with this simulator.
 ```
 
 ## Known Limitations
@@ -905,8 +973,8 @@ docs/instruction_encoding_guide.md
 
 ## Recommended Next Steps
 
-1. Add README diagrams.
-2. Add more example programs.
-3. Add external RISC-V toolchain integration notes.
-4. Add optional instruction/memory dumps.
-5. Add cache modeling hooks.
+1. Add cache modeling hooks.
+2. Add ELF loading or a scripted toolchain conversion flow.
+3. Add GitHub Actions CI.
+4. Add more RV32I edge-case tests.
+5. Add a pipeline visualization tool using the CSV trace output.

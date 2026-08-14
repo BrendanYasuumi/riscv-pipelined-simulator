@@ -14,6 +14,7 @@
 #include "pipeline_registers.hpp"
 #include "pipeline_trace.hpp"
 #include "program_loader.hpp"
+#include "state_dump.hpp"
 #include "stages.hpp"
 
 namespace {
@@ -31,6 +32,10 @@ struct CliOptions {
     uint64_t max_cycles = 100;
     uint64_t retire_count = 0;
     bool has_retire_count = false;
+    bool dump_regs = false;
+    bool dump_memory = false;
+    uint32_t dump_memory_start = 0;
+    uint32_t dump_memory_length = 0;
     bool trace = false;
     bool show_help = false;
 };
@@ -68,8 +73,43 @@ uint64_t parse_u64(std::string_view text, std::string_view option_name) {
         }
         return value;
     } catch (const std::exception&) {
+        throw std::runtime_error("invalid value for " +
+                                 std::string(option_name));
+    }
+}
+
+uint64_t parse_u64_auto(std::string_view text, std::string_view option_name) {
+    try {
+        std::size_t parsed = 0;
+        const uint64_t value = std::stoull(std::string(text), &parsed, 0);
+        if (parsed != text.size()) {
+            throw std::invalid_argument("trailing characters");
+        }
+        return value;
+    } catch (const std::exception&) {
         throw std::runtime_error("invalid value for " + std::string(option_name));
     }
+}
+
+void parse_memory_dump_range(std::string_view value, CliOptions& options) {
+    const std::size_t separator = value.find(':');
+    if (separator == std::string_view::npos) {
+        throw std::runtime_error(
+            "--dump-memory must use START:LENGTH format");
+    }
+
+    const uint64_t start =
+        parse_u64_auto(value.substr(0, separator), "--dump-memory start");
+    const uint64_t length =
+        parse_u64_auto(value.substr(separator + 1), "--dump-memory length");
+
+    if (start > UINT32_MAX || length > UINT32_MAX) {
+        throw std::runtime_error("--dump-memory values must fit in 32 bits");
+    }
+
+    options.dump_memory = true;
+    options.dump_memory_start = static_cast<uint32_t>(start);
+    options.dump_memory_length = static_cast<uint32_t>(length);
 }
 
 rv32i::BranchPredictorType parse_branch_predictor(std::string_view value) {
@@ -110,6 +150,10 @@ CliOptions parse_cli(int argc, char* argv[]) {
             options.show_help = true;
         } else if (arg == "--trace") {
             options.trace = true;
+        } else if (arg == "--dump-regs") {
+            options.dump_regs = true;
+        } else if (arg.rfind("--dump-memory=", 0) == 0) {
+            parse_memory_dump_range(arg.substr(14), options);
         } else if (arg.rfind("--trace-csv=", 0) == 0) {
             options.trace_csv_path = std::string(arg.substr(12));
             if (options.trace_csv_path.empty()) {
@@ -170,6 +214,8 @@ void print_usage(const char* executable) {
     std::cout << "  --format=auto|hex|bin\n";
     std::cout << "  --max-cycles=N\n";
     std::cout << "  --retire-count=N\n";
+    std::cout << "  --dump-regs\n";
+    std::cout << "  --dump-memory=START:LENGTH\n";
     std::cout << "  --trace\n";
     std::cout << "  --trace-csv=PATH\n";
     std::cout << "  --help\n";
@@ -276,6 +322,16 @@ int main(int argc, char* argv[]) {
 
         print_registers(cpu);
         print_stats(cpu);
+
+        if (options.dump_regs) {
+            rv32i::print_register_dump(std::cout, cpu);
+        }
+        if (options.dump_memory) {
+            rv32i::print_memory_dump(std::cout,
+                                     cpu,
+                                     options.dump_memory_start,
+                                     options.dump_memory_length);
+        }
 
         if (cpu.stats().instruction_count < target_retired) {
             std::cerr << "\nSimulation stopped before all instructions retired\n";

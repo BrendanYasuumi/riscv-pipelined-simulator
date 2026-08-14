@@ -768,7 +768,36 @@ main:
 
     print registers
     print stats
+    if dump-regs option is enabled:
+        print full register dump
+    if dump-memory option is enabled:
+        print requested memory byte range
 ```
+
+## Register and Memory Dumps
+
+```text
+print_register_dump(cpu):
+    for register x0 through x31:
+        value = cpu.read_reg(register)
+        print register name
+        print value in hexadecimal
+        print value in decimal
+```
+
+```text
+print_memory_dump(cpu, start_address, byte_count):
+    require start_address + byte_count <= memory size
+
+    for each 16-byte row in requested range:
+        print row starting address
+        for each byte in row:
+            print byte as two hex digits
+```
+
+Hardware rationale: register and memory dumps are observation tools. They do
+not mutate architectural state. They let you verify the final visible behavior
+of a program after the pipeline timing machinery has retired instructions.
 
 ## Pipeline Trace
 

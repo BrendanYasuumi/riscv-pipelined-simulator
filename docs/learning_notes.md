@@ -569,3 +569,85 @@ examples/memory_latency.hex
 examples/no_forwarding_demo.hex
     Demonstrates extra RAW stalls when forwarding is disabled.
 ```
+
+## Presentation Polish, State Dumps, and Toolchain Notes
+
+### What changed
+
+- Added README architecture diagrams.
+- Added `--dump-regs` for all 32 architectural registers.
+- Added `--dump-memory=START:LENGTH` for byte-level memory inspection.
+- Added more runnable `.hex` examples.
+- Added RISC-V toolchain workflow notes.
+- Added tests for dump formatting.
+
+### Why state dumps matter
+
+Pipeline trace shows how instructions move each cycle. State dumps show what
+the program actually changed after those cycles retire.
+
+Those answer different questions:
+
+```text
+trace:
+    What was happening inside the pipeline over time?
+
+register dump:
+    What values did the program leave in x0 through x31?
+
+memory dump:
+    What bytes did loads and stores read or write?
+```
+
+### Register dump pseudocode
+
+```text
+for reg in x0..x31:
+    value = read_reg(reg)
+    print register name, hex value, decimal value
+```
+
+`x0` still prints as zero because `CPU::read_reg(0)` enforces the hardware
+rule that register zero is hardwired.
+
+### Memory dump pseudocode
+
+```text
+parse --dump-memory=START:LENGTH
+validate range is inside simulated RAM
+
+for each 16-byte row:
+    print starting address
+    print each byte in little-endian memory order
+```
+
+The dump prints bytes, not decoded instructions. That is intentional because
+memory is byte-addressable hardware state.
+
+### New examples
+
+```text
+examples/store_load.hex
+    Stores a value to memory and loads it back.
+
+examples/jump.hex
+    Demonstrates JAL redirect and link-register writeback.
+
+examples/branch_predictor.hex
+    Compares always-not-taken and always-taken prediction.
+
+examples/shift_compare.hex
+    Demonstrates shift and signed comparison ALU operations.
+```
+
+### What toolchain notes teach
+
+Hand-written `.hex` files are best for small architecture lessons. A RISC-V GNU
+toolchain can assemble real `.s` files into `.bin` files once you want larger
+programs.
+
+The workflow is:
+
+```text
+assembly source -> object file -> raw binary -> simulator memory
+```

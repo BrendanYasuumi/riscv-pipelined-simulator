@@ -11,6 +11,7 @@ CORE_SOURCES := \
 	src/instruction.cpp \
 	src/pipeline_trace.cpp \
 	src/program_loader.cpp \
+	src/state_dump.cpp \
 	src/stages.cpp
 
 SOURCES := main.cpp $(CORE_SOURCES)
