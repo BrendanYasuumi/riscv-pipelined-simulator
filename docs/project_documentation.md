@@ -867,6 +867,64 @@ reuse it. Text diagrams are portable in GitHub Markdown and do not require
 image assets. Toolchain notes make the project easier to grow beyond
 hand-written machine-code examples.
 
+## Step 15: Halt and Required Instruction Subset Regression
+
+### Files
+
+```text
+include/cpu.hpp
+src/cpu.cpp
+include/pipeline_registers.hpp
+include/stages.hpp
+src/stages.cpp
+src/instruction.cpp
+tests/simulator_tests.cpp
+tests/golden/required_subset.txt
+examples/required_subset.hex
+Makefile
+README.md
+docs/pseudocode.md
+docs/learning_notes.md
+```
+
+### What We Built
+
+New capabilities:
+
+```text
+ecall/ebreak halt handling
+required RV32I subset example program
+required RV32I subset execution test
+make regression golden-output diff test
+README supported instruction checklist
+```
+
+### Problem
+
+The simulator could decode `ecall` and `ebreak`, but those instructions did not
+actually stop simulation. We also needed a concrete definition of done based on
+the required instruction list.
+
+### Solution
+
+We added a halt control signal. Decode marks `ecall` and `ebreak` as halt
+instructions. Fetch stops when halt is decoded, and the CPU becomes halted when
+the halt instruction reaches writeback.
+
+We also added:
+
+```text
+examples/required_subset.hex
+tests/golden/required_subset.txt
+make regression
+```
+
+### Why This Solution
+
+Halt now behaves like a real architectural event instead of an external loop
+condition. The golden regression gives us a simple answer to "did the visible
+behavior change?": if `diff` is empty, the expected and actual outputs match.
+
 ## Current Demo Program
 
 The current demo program is:
@@ -943,6 +1001,7 @@ examples/store_load.hex
 examples/jump.hex
 examples/branch_predictor.hex
 examples/shift_compare.hex
+examples/required_subset.hex
     Small external hex programs for architecture demonstrations.
 
 main.cpp
@@ -962,6 +1021,9 @@ docs/instruction_encoding_guide.md
 
 docs/toolchain_workflow.md
     Notes for using external RISC-V assembler tools with this simulator.
+
+tests/golden/required_subset.txt
+    Expected CLI output for the required instruction subset regression.
 ```
 
 ## Known Limitations
@@ -973,8 +1035,8 @@ docs/toolchain_workflow.md
 
 ## Recommended Next Steps
 
-1. Add cache modeling hooks.
-2. Add ELF loading or a scripted toolchain conversion flow.
-3. Add GitHub Actions CI.
-4. Add more RV32I edge-case tests.
+1. Add GitHub Actions CI for `make test` and `make regression`.
+2. Add a simple reference/diff harness for multiple golden cases.
+3. Add cache modeling hooks.
+4. Add ELF loading or a scripted toolchain conversion flow.
 5. Add a pipeline visualization tool using the CSV trace output.

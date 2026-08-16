@@ -30,6 +30,7 @@ void CPU::reset() {
     regs_.fill(0);
     branch_predictor_counters_.fill(1);
     pc_ = kResetPC;
+    halted_ = false;
     stats_ = ExecutionStats{};
 }
 
@@ -127,6 +128,7 @@ void CPU::load_program(const std::vector<uint8_t>& program,
     validate_memory_access(base_address, program.size());
     std::copy(program.begin(), program.end(), memory_.begin() + base_address);
     pc_ = base_address;
+    halted_ = false;
 }
 
 std::size_t CPU::memory_size() const {
@@ -151,6 +153,14 @@ ExecutionStats& CPU::mutable_stats() {
 
 void CPU::tick() {
     ++stats_.clock_cycles;
+}
+
+bool CPU::halted() const {
+    return halted_;
+}
+
+void CPU::halt() {
+    halted_ = true;
 }
 
 bool CPU::predict_branch(uint32_t pc) const {

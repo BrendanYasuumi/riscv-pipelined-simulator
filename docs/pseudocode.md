@@ -365,6 +365,12 @@ decode_instruction(raw):
         control.writeback_source = PC_PLUS_4
 ```
 
+```text
+    if opcode == SYSTEM and instruction is ECALL or EBREAK:
+        decoded.kind = ECALL / EBREAK
+        control.halt = true
+```
+
 Hardware rationale: the decode stage is where instruction bits become control
 signals. Later stages should not need to rediscover whether an instruction is a
 load, store, branch, ALU operation, or jump; they should simply follow the
@@ -429,6 +435,9 @@ stage_ID:
     next ID/EX.rs1_value = register_file[rs1]
     next ID/EX.rs2_value = register_file[rs2]
     next ID/EX.control = decoded.control
+
+    if decoded.control.halt:
+        request fetch stop
 ```
 
 Decode turns instruction bits into control signals and reads the register file.
@@ -486,6 +495,9 @@ stage_WB:
     if control.reg_write:
         value = select ALU / memory / PC+4 / immediate
         register_file[rd] = value
+
+    if control.halt:
+        CPU.halted = true
 
     instruction_count += 1
 ```
@@ -759,7 +771,7 @@ main:
     load program bytes into memory
     target_retired = retire-count option or loaded instruction count
 
-    while retired instructions < target_retired:
+    while CPU is not halted and retired instructions < target_retired:
         if clock_cycles reached max_cycles:
             stop with failure
         if trace is enabled:
@@ -798,6 +810,23 @@ print_memory_dump(cpu, start_address, byte_count):
 Hardware rationale: register and memory dumps are observation tools. They do
 not mutate architectural state. They let you verify the final visible behavior
 of a program after the pipeline timing machinery has retired instructions.
+
+## Halt Handling
+
+```text
+when ID decodes ECALL or EBREAK:
+    set halt control signal
+    stop fetching younger instructions
+    clear next IF/ID latch
+
+when halt reaches WB:
+    mark CPU halted
+    retire the halt instruction
+```
+
+Hardware rationale: halt is treated as an architectural instruction that
+retires. Fetch stops as soon as halt is decoded so instructions after halt do
+not accidentally enter the pipeline while halt drains through EX, MEM, and WB.
 
 ## Pipeline Trace
 

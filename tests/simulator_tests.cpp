@@ -104,6 +104,16 @@ void run_until_retired(rv32i::CPU& cpu,
     }
 }
 
+void run_until_halted(rv32i::CPU& cpu,
+                      rv32i::PipelineRegisters& pipeline,
+                      uint64_t max_cycles = 200) {
+    while (!cpu.halted() && cpu.stats().clock_cycles < max_cycles) {
+        rv32i::run_pipeline_cycle(cpu, pipeline);
+    }
+
+    assert(cpu.halted());
+}
+
 rv32i::CPU run_program(const std::vector<uint32_t>& words,
                        uint64_t retired,
                        rv32i::Config config = {},
@@ -113,6 +123,16 @@ rv32i::CPU run_program(const std::vector<uint32_t>& words,
     load_words(cpu, words);
     run_until_retired(cpu, pipeline, retired);
     assert(cpu.stats().instruction_count == retired);
+    return cpu;
+}
+
+rv32i::CPU run_program_until_halt(const std::vector<uint32_t>& words,
+                                  rv32i::Config config = {},
+                                  uint32_t memory_size = 256) {
+    rv32i::CPU cpu(memory_size, config);
+    rv32i::PipelineRegisters pipeline;
+    load_words(cpu, words);
+    run_until_halted(cpu, pipeline);
     return cpu;
 }
 
@@ -466,6 +486,79 @@ void test_pipeline_trace_csv_output() {
            std::string::npos);
 }
 
+void test_halt_stops_fetching_younger_instructions() {
+    const rv32i::CPU cpu = run_program_until_halt({
+        0x00000073u,                 // ecall/halt
+        encode_i(99, 0, 0x0, 1),     // must not execute after halt
+    });
+
+    assert(cpu.halted());
+    assert(cpu.stats().instruction_count == 1);
+    assert(cpu.read_reg(1) == 0);
+}
+
+void test_required_instruction_subset_execution() {
+    const rv32i::CPU cpu = run_program_until_halt({
+        encode_i(5, 0, 0x0, 1),          // addi x1, x0, 5
+        encode_i(7, 0, 0x0, 2),          // addi x2, x0, 7
+        encode_r(0x00, 2, 1, 0x0, 3),    // add x3, x1, x2
+        encode_i(10, 3, 0x7, 4),         // andi x4, x3, 10
+        encode_r(0x00, 2, 1, 0x7, 5),    // and x5, x1, x2
+        encode_i(1, 4, 0x6, 6),          // ori x6, x4, 1
+        encode_r(0x00, 2, 1, 0x6, 7),    // or x7, x1, x2
+        encode_i(3, 7, 0x4, 8),          // xori x8, x7, 3
+        encode_r(0x00, 2, 1, 0x4, 9),    // xor x9, x1, x2
+        encode_shift_i(0x00, 1, 1, 0x1, 10),  // slli x10, x1, 1
+        encode_r(0x00, 2, 1, 0x1, 11),   // sll x11, x1, x2
+        encode_u(0x1, 12, 0x37),         // lui x12, 0x1
+        encode_i(128, 0, 0x0, 13),       // addi x13, x0, 128
+        encode_s(0, 3, 13, 0x2),         // sw x3, 0(x13)
+        encode_i(0, 13, 0x2, 14, 0x03),  // lw x14, 0(x13)
+        encode_i(0, 0, 0x0, 0),          // nop
+        encode_b(8, 1, 1, 0x0),          // beq x1, x1, +8
+        encode_i(1, 0, 0x0, 15),         // skipped
+        encode_b(8, 2, 1, 0x1),          // bne x1, x2, +8
+        encode_i(2, 0, 0x0, 15),         // skipped
+        encode_b(8, 2, 1, 0x4),          // blt x1, x2, +8
+        encode_i(3, 0, 0x0, 15),         // skipped
+        encode_b(8, 1, 2, 0x5),          // bge x2, x1, +8
+        encode_i(4, 0, 0x0, 15),         // skipped
+        encode_b(8, 2, 1, 0x6),          // bltu x1, x2, +8
+        encode_i(5, 0, 0x0, 15),         // skipped
+        encode_b(8, 1, 2, 0x7),          // bgeu x2, x1, +8
+        encode_i(6, 0, 0x0, 15),         // skipped
+        encode_j(8, 16),                 // jal x16, +8
+        encode_i(17, 0, 0x0, 17),        // skipped
+        encode_i(132, 0, 0x0, 18),       // addi x18, x0, 132
+        encode_i(0, 18, 0x0, 19, 0x67),  // jalr x19, 0(x18)
+        encode_i(20, 0, 0x0, 20),        // skipped
+        0x00000073u,                     // halt/ecall
+    }, {}, 512);
+
+    assert(cpu.read_reg(1) == 5);
+    assert(cpu.read_reg(2) == 7);
+    assert(cpu.read_reg(3) == 12);
+    assert(cpu.read_reg(4) == 8);
+    assert(cpu.read_reg(5) == 5);
+    assert(cpu.read_reg(6) == 9);
+    assert(cpu.read_reg(7) == 7);
+    assert(cpu.read_reg(8) == 4);
+    assert(cpu.read_reg(9) == 2);
+    assert(cpu.read_reg(10) == 10);
+    assert(cpu.read_reg(11) == 640);
+    assert(cpu.read_reg(12) == 4096);
+    assert(cpu.read_reg(13) == 128);
+    assert(cpu.read_reg(14) == 12);
+    assert(cpu.read_reg(15) == 0);
+    assert(cpu.read_reg(16) == 116);
+    assert(cpu.read_reg(17) == 0);
+    assert(cpu.read_reg(18) == 132);
+    assert(cpu.read_reg(19) == 128);
+    assert(cpu.read_reg(20) == 0);
+    assert(cpu.read_u32(128) == 12);
+    assert(cpu.halted());
+}
+
 void test_register_dump_formatting() {
     rv32i::CPU cpu(64);
     cpu.write_reg(1, 5);
@@ -519,6 +612,8 @@ int main() {
     test_always_taken_mispredicts_not_taken_branch();
     test_two_bit_predictor_counter_updates();
     test_pipeline_trace_csv_output();
+    test_halt_stops_fetching_younger_instructions();
+    test_required_instruction_subset_execution();
     test_register_dump_formatting();
     test_memory_dump_formatting();
     return 0;

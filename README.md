@@ -42,6 +42,7 @@ branch prediction, memory latency, and performance metrics.
 - Optional per-cycle pipeline trace output
 - Optional CSV trace output
 - Optional full register and memory window dumps
+- `ecall`/`ebreak` halt handling
 - Execution metrics
   - Total cycles
   - Instructions retired
@@ -50,6 +51,38 @@ branch prediction, memory latency, and performance metrics.
   - Stall cycles
   - Branch mispredictions
 - Assertion-based behavior tests
+- Golden-output regression test using `diff`
+
+## Supported Instruction Subset
+
+The simulator functionally executes this RV32I subset:
+
+```text
+add   addi   and   andi
+beq   bge    bgeu  blt   bltu  bne
+jal   jalr   lui
+lw    sw
+or    ori
+sll   slli
+xor   xori
+nop   halt
+```
+
+`nop` is implemented using the normal RISC-V encoding:
+
+```text
+addi x0, x0, 0
+```
+
+`halt` is modeled with system instructions:
+
+```text
+ecall
+ebreak
+```
+
+When the decode stage sees a halt instruction, fetch stops. When halt reaches
+writeback, the CPU marks the simulation as halted.
 
 ## Pipeline Model
 
@@ -157,6 +190,12 @@ Run tests:
 
 ```bash
 make test
+```
+
+Run the golden-output regression:
+
+```bash
+make regression
 ```
 
 Clean build outputs:
@@ -358,6 +397,13 @@ Shift and comparison operations:
 ./simulator examples/shift_compare.hex --dump-regs
 ```
 
+Required instruction subset regression:
+
+```bash
+./simulator examples/required_subset.hex --dump-regs --dump-memory=128:4
+make regression
+```
+
 ## Example Output
 
 Running:
@@ -463,6 +509,7 @@ examples/store_load.hex
 examples/jump.hex
 examples/branch_predictor.hex
 examples/shift_compare.hex
+examples/required_subset.hex
     Small sample machine-code programs for architecture experiments.
 
 docs/
@@ -502,12 +549,15 @@ Current tests cover:
 - CSV trace formatting
 - Register dump formatting
 - Memory dump formatting
+- Halt behavior
+- Required instruction subset execution
+- Golden-output CLI regression with `diff`
 
 ## Current Limitations
 
 - Supports a focused RV32I subset, not every RV32I instruction yet.
-- No ELF loader yet.
 - No assembler yet.
+- No ELF loader yet.
 - Branch predictor is intentionally small and direct-mapped.
 - JALR target prediction cannot happen in IF because the target depends on a
   register value.

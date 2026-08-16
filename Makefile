@@ -17,7 +17,7 @@ CORE_SOURCES := \
 SOURCES := main.cpp $(CORE_SOURCES)
 TEST_SOURCES := tests/simulator_tests.cpp $(CORE_SOURCES)
 
-.PHONY: all run test clean
+.PHONY: all run test regression clean
 
 all: $(TARGET)
 
@@ -32,6 +32,10 @@ $(TEST_TARGET): $(TEST_SOURCES)
 
 test: $(TEST_TARGET)
 	./$(TEST_TARGET)
+
+regression: $(TARGET)
+	./$(TARGET) examples/required_subset.hex --dump-regs --dump-memory=128:4 > /tmp/rv32i_required_subset_actual.txt
+	diff -u tests/golden/required_subset.txt /tmp/rv32i_required_subset_actual.txt
 
 clean:
 	rm -f $(TARGET) $(TEST_TARGET)

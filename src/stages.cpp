@@ -149,6 +149,10 @@ void stage_WB(CPU& cpu, PipelineRegisters& pipeline) {
         cpu.write_reg(mem_wb.rd, select_writeback_value(mem_wb));
     }
 
+    if (mem_wb.control.halt) {
+        cpu.halt();
+    }
+
     ++cpu.mutable_stats().instruction_count;
 }
 
@@ -262,7 +266,7 @@ void stage_EX(CPU& cpu, PipelineRegisters& pipeline, StageControl& control) {
 
 void stage_ID(CPU& cpu,
               PipelineRegisters& pipeline,
-              const StageControl& control) {
+              StageControl& control) {
     if (control.flush_id_ex) {
         pipeline.next_id_ex.clear();
         return;
@@ -301,6 +305,10 @@ void stage_ID(CPU& cpu,
     next.rs1_value = cpu.read_reg(decoded.rs1);
     next.rs2_value = cpu.read_reg(decoded.rs2);
     next.control = decoded.control;
+
+    if (next.control.halt) {
+        control.stop_fetch = true;
+    }
 
     pipeline.next_id_ex = next;
 }
@@ -364,7 +372,9 @@ void run_pipeline_cycle(CPU& cpu, PipelineRegisters& pipeline) {
 
     stage_ID(cpu, pipeline, control);
 
-    if (!control.stall_fetch_decode) {
+    if (control.stop_fetch) {
+        pipeline.next_if_id.clear();
+    } else if (!control.stall_fetch_decode) {
         stage_IF(cpu, pipeline);
     } else {
         pipeline.next_if_id = pipeline.if_id;

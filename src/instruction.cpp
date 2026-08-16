@@ -300,8 +300,10 @@ DecodedInstruction decode_instruction(uint32_t instruction) {
 
             if (fields.funct3 == 0x0 && fields.imm == 0) {
                 decoded.kind = InstructionKind::Ecall;
+                decoded.control.halt = true;
             } else if (fields.funct3 == 0x0 && fields.imm == 1) {
                 decoded.kind = InstructionKind::Ebreak;
+                decoded.control.halt = true;
             }
             break;
         }

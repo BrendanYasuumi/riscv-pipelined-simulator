@@ -62,6 +62,7 @@ struct ControlSignals {
     bool alu_src_pc = false;
     bool alu_src_imm = false;
     bool mem_unsigned = false;
+    bool halt = false;
 
     ALUOp alu_op = ALUOp::None;
     WritebackSource writeback_source = WritebackSource::None;

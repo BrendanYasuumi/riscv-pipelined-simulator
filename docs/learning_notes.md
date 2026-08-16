@@ -651,3 +651,66 @@ The workflow is:
 ```text
 assembly source -> object file -> raw binary -> simulator memory
 ```
+
+## Halt and Required Instruction Subset Regression
+
+### What changed
+
+- Added real halt behavior using `ecall` and `ebreak`.
+- Added a required-subset example program.
+- Added a C++ test that checks every instruction in the requested subset.
+- Added `make regression`, which runs the CLI and compares output with `diff`.
+- Updated the README with the supported instruction list.
+
+### Supported subset
+
+```text
+add   addi   and   andi
+beq   bge    bgeu  blt   bltu  bne
+jal   jalr   lui
+lw    sw
+or    ori
+sll   slli
+xor   xori
+nop   halt
+```
+
+### What halt means
+
+The simulator treats these system instructions as halt:
+
+```text
+ecall
+ebreak
+```
+
+When halt is decoded:
+
+```text
+stop fetching younger instructions
+let halt move through EX, MEM, and WB
+mark CPU halted in WB
+retire the halt instruction
+```
+
+This matters because stopping immediately in the middle of decode would be less
+like a pipeline. Letting halt retire keeps the cycle model consistent.
+
+### What `make regression` does
+
+```text
+build simulator
+run examples/required_subset.hex
+dump registers and memory
+compare exact output against tests/golden/required_subset.txt
+```
+
+If the output changes unexpectedly, `diff` prints the mismatch. A clean run
+means:
+
+```text
+diff = 0
+```
+
+That gives the project a simple regression gate for interview demos and future
+refactors.

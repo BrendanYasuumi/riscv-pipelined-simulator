@@ -87,7 +87,8 @@ uint64_t parse_u64_auto(std::string_view text, std::string_view option_name) {
         }
         return value;
     } catch (const std::exception&) {
-        throw std::runtime_error("invalid value for " + std::string(option_name));
+        throw std::runtime_error("invalid value for " +
+                                 std::string(option_name));
     }
 }
 
@@ -264,6 +265,8 @@ void print_stats(const rv32i::CPU& cpu) {
     std::cout << "  Stall cycles:          " << stats.stall_cycles << '\n';
     std::cout << "  Branch mispredictions: " << stats.branch_mispredictions
               << '\n';
+    std::cout << "  Halted:                "
+              << (cpu.halted() ? "yes" : "no") << '\n';
 }
 
 }  // namespace
@@ -309,7 +312,8 @@ int main(int argc, char* argv[]) {
                                             ? options.retire_count
                                             : program.instruction_count;
 
-        while (cpu.stats().instruction_count < target_retired &&
+        while (!cpu.halted() &&
+               cpu.stats().instruction_count < target_retired &&
                cpu.stats().clock_cycles < options.max_cycles) {
             if (options.trace) {
                 rv32i::print_pipeline_trace(std::cout, cpu, pipeline);
@@ -333,7 +337,10 @@ int main(int argc, char* argv[]) {
                                      options.dump_memory_length);
         }
 
-        if (cpu.stats().instruction_count < target_retired) {
+        const bool reached_target =
+            cpu.stats().instruction_count >= target_retired;
+        const bool clean_halt = cpu.halted() && !options.has_retire_count;
+        if (!reached_target && !clean_halt) {
             std::cerr << "\nSimulation stopped before all instructions retired\n";
             return EXIT_FAILURE;
         }

@@ -58,6 +58,9 @@ public:
     ExecutionStats& mutable_stats();
     void tick();
 
+    bool halted() const;
+    void halt();
+
     bool predict_branch(uint32_t pc) const;
     void update_branch_predictor(uint32_t pc, bool taken);
 
@@ -69,6 +72,7 @@ private:
     std::array<uint32_t, kNumRegisters> regs_{};
     std::array<uint8_t, kBranchPredictorEntries> branch_predictor_counters_{};
     uint32_t pc_ = kResetPC;
+    bool halted_ = false;
     std::vector<uint8_t> memory_;
     ExecutionStats stats_{};
 };
