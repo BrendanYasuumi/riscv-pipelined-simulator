@@ -1,0 +1,60 @@
+Loaded program: examples/memory_latency.hex (2 instruction(s))
+
+Configuration:
+  Forwarding:       enabled
+  Memory latency:   4 cycle(s)
+  Branch predictor: always-not-taken
+  Max cycles:       100
+
+Architectural registers:
+  x0 = 0
+  x1 = 0
+  x2 = 1
+  x3 = 0
+  x4 = 0
+  x5 = 0
+  x6 = 0
+  x7 = 0
+
+Execution stats:
+  Total cycles:          9
+  Instructions retired:  2
+  CPI:                   4.5
+  IPC:                   0.222222
+  Stall cycles:          3
+  Branch mispredictions: 0
+  Halted:                no
+
+Register dump:
+  x00 = 0x00000000 (0)
+  x01 = 0x00000000 (0)
+  x02 = 0x00000001 (1)
+  x03 = 0x00000000 (0)
+  x04 = 0x00000000 (0)
+  x05 = 0x00000000 (0)
+  x06 = 0x00000000 (0)
+  x07 = 0x00000000 (0)
+  x08 = 0x00000000 (0)
+  x09 = 0x00000000 (0)
+  x10 = 0x00000000 (0)
+  x11 = 0x00000000 (0)
+  x12 = 0x00000000 (0)
+  x13 = 0x00000000 (0)
+  x14 = 0x00000000 (0)
+  x15 = 0x00000000 (0)
+  x16 = 0x00000000 (0)
+  x17 = 0x00000000 (0)
+  x18 = 0x00000000 (0)
+  x19 = 0x00000000 (0)
+  x20 = 0x00000000 (0)
+  x21 = 0x00000000 (0)
+  x22 = 0x00000000 (0)
+  x23 = 0x00000000 (0)
+  x24 = 0x00000000 (0)
+  x25 = 0x00000000 (0)
+  x26 = 0x00000000 (0)
+  x27 = 0x00000000 (0)
+  x28 = 0x00000000 (0)
+  x29 = 0x00000000 (0)
+  x30 = 0x00000000 (0)
+  x31 = 0x00000000 (0)

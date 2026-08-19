@@ -198,6 +198,9 @@ Run the golden-output regression:
 make regression
 ```
 
+`make regression` runs several CLI-level examples and compares their exact
+register, memory, and metric output against files in `tests/golden/`.
+
 Clean build outputs:
 
 ```bash
@@ -339,6 +342,9 @@ Format selection is automatic for `.hex` and `.bin` paths, or explicit:
 For notes on assembling RV32I source with an external RISC-V toolchain, see
 [`docs/toolchain_workflow.md`](docs/toolchain_workflow.md).
 
+For the recommended program structure and halt behavior, see
+[`docs/program_format_and_termination.md`](docs/program_format_and_termination.md).
+
 ## Runnable Examples
 
 Basic ALU dependency with forwarding:
@@ -436,6 +442,7 @@ Execution stats:
   IPC:                   0.428571
   Stall cycles:          0
   Branch mispredictions: 0
+  Halted:                no
 ```
 
 With forwarding disabled:
@@ -497,8 +504,14 @@ include/state_dump.hpp
 src/state_dump.cpp
     Register and memory dump formatting helpers.
 
+.github/workflows/ci.yml
+    GitHub Actions workflow for build, test, and regression checks.
+
 tests/simulator_tests.cpp
     Assertion-based behavior tests.
+
+tests/golden/
+    Expected CLI outputs for golden regression cases.
 
 examples/add.hex
 examples/load_use.hex
@@ -514,7 +527,7 @@ examples/required_subset.hex
 
 docs/
     Pseudocode, learning notes, and detailed project documentation.
-    Includes an RV32I instruction encoding guide and toolchain workflow notes.
+    Includes instruction encoding, toolchain, and program termination notes.
 ```
 
 ## Tests
@@ -551,7 +564,15 @@ Current tests cover:
 - Memory dump formatting
 - Halt behavior
 - Required instruction subset execution
-- Golden-output CLI regression with `diff`
+- Golden-output CLI regressions with `diff`
+
+Current golden regression cases:
+
+- `add`
+- `store_load`
+- `branch_predictor`
+- `memory_latency`
+- `required_subset`
 
 ## Current Limitations
 
@@ -566,7 +587,7 @@ Current tests cover:
 
 - Add cache modeling hooks using the existing memory-latency interface.
 - Add an ELF loader or scripted integration with external RISC-V toolchains.
-- Add GitHub Actions CI for `make test`.
+- Add more golden regressions for edge cases and error cases.
 
 ## Design Notes
 

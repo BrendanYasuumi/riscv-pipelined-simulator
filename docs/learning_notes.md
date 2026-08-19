@@ -714,3 +714,60 @@ diff = 0
 
 That gives the project a simple regression gate for interview demos and future
 refactors.
+
+## CI, Multi-Case Regression, and Program Format Cleanup
+
+### What changed
+
+- Added GitHub Actions CI in `.github/workflows/ci.yml`.
+- Expanded `make regression` from one golden case to five golden cases.
+- Added `docs/program_format_and_termination.md`.
+- Updated README documentation around halt, `.hex`, `.bin`, and regressions.
+
+### What CI does
+
+GitHub Actions runs on pushes and pull requests to `main`.
+
+```text
+checkout code
+build simulator
+run make test
+run make regression
+```
+
+This proves the project builds and passes tests outside your local machine.
+
+### Why multiple golden cases matter
+
+Each golden case protects a different behavior:
+
+```text
+add:
+    basic ALU dataflow
+
+store_load:
+    register plus memory state
+
+branch_predictor:
+    control-flow prediction behavior
+
+memory_latency:
+    stall cycle accounting
+
+required_subset:
+    full required instruction checklist
+```
+
+### Cleaner program termination story
+
+For new examples, prefer:
+
+```text
+instruction
+instruction
+instruction
+ecall
+```
+
+`--retire-count=N` is still useful for tiny control-flow demos, but `ecall` is
+the cleaner way for a program to say "I am done."

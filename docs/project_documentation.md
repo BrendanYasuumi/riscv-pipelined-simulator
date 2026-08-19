@@ -925,6 +925,68 @@ Halt now behaves like a real architectural event instead of an external loop
 condition. The golden regression gives us a simple answer to "did the visible
 behavior change?": if `diff` is empty, the expected and actual outputs match.
 
+## Step 16: CI, Multi-Case Regression, and Program Format Cleanup
+
+### Files
+
+```text
+.github/workflows/ci.yml
+Makefile
+tests/golden/add.txt
+tests/golden/store_load.txt
+tests/golden/branch_predictor.txt
+tests/golden/memory_latency.txt
+docs/program_format_and_termination.md
+README.md
+docs/learning_notes.md
+docs/project_documentation.md
+```
+
+### What We Built
+
+New capabilities:
+
+```text
+GitHub Actions CI
+multi-case golden regression suite
+program format and halt documentation
+cleaner README testing story
+```
+
+### Problem
+
+The project had local tests, but GitHub did not automatically verify pushes.
+The regression suite also had only one golden case, so it protected the full
+required subset but not smaller, easier-to-debug behaviors.
+
+### Solution
+
+We added a CI workflow that runs:
+
+```text
+make
+make test
+make regression
+```
+
+We expanded `make regression` to cover:
+
+```text
+add
+store_load
+branch_predictor
+memory_latency
+required_subset
+```
+
+We also documented when to use `.hex`, `.bin`, `ecall`, and `--retire-count`.
+
+### Why This Solution
+
+CI makes the GitHub repository self-checking. Multi-case golden outputs make
+regressions easier to localize: if the memory case fails but the ALU case
+passes, the likely bug area is much smaller.
+
 ## Current Demo Program
 
 The current demo program is:
@@ -989,6 +1051,9 @@ include/state_dump.hpp
 src/state_dump.cpp
     Full register and memory window dump formatting.
 
+.github/workflows/ci.yml
+    Builds and verifies the simulator on GitHub.
+
 tests/simulator_tests.cpp
     Assertion-based simulator behavior tests.
 
@@ -1023,7 +1088,14 @@ docs/toolchain_workflow.md
     Notes for using external RISC-V assembler tools with this simulator.
 
 tests/golden/required_subset.txt
-    Expected CLI output for the required instruction subset regression.
+tests/golden/add.txt
+tests/golden/store_load.txt
+tests/golden/branch_predictor.txt
+tests/golden/memory_latency.txt
+    Expected CLI outputs for golden regressions.
+
+docs/program_format_and_termination.md
+    Explains .hex/.bin programs, nop, halt, and retire-count usage.
 ```
 
 ## Known Limitations
@@ -1035,8 +1107,8 @@ tests/golden/required_subset.txt
 
 ## Recommended Next Steps
 
-1. Add GitHub Actions CI for `make test` and `make regression`.
-2. Add a simple reference/diff harness for multiple golden cases.
-3. Add cache modeling hooks.
-4. Add ELF loading or a scripted toolchain conversion flow.
+1. Add more golden regressions for edge cases and invalid input.
+2. Add cache modeling hooks.
+3. Add ELF loading or a scripted toolchain conversion flow.
+4. Add a reference comparison path against an external RISC-V simulator.
 5. Add a pipeline visualization tool using the CSV trace output.
