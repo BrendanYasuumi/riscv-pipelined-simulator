@@ -8,3 +8,6 @@ emulator
 
 # VS Code settings
 .vscode/
+
+# Personal learning notes
+docs/learning_notes.md
