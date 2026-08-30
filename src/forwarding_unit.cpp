@@ -49,15 +49,10 @@ uint32_t mem_wb_forward_value(const MEMWBRegister& mem_wb) {
 }  // namespace
 
 ForwardedOperands resolve_forwarding(const IDEXRegister& id_ex,
-                                     const PipelineRegisters& pipeline,
-                                     bool enable_forwarding) {
+                                     const PipelineRegisters& pipeline) {
     ForwardedOperands operands{};
     operands.rs1_value = id_ex.rs1_value;
     operands.rs2_value = id_ex.rs2_value;
-
-    if (!enable_forwarding) {
-        return operands;
-    }
 
     if (can_forward_from_ex_mem(pipeline.ex_mem)) {
         const uint32_t value = ex_mem_forward_value(pipeline.ex_mem);

@@ -22,15 +22,13 @@ double ExecutionStats::ipc() const {
 }
 
 CPU::CPU(std::size_t memory_size_bytes, Config config)
-    : config_(config), memory_(memory_size_bytes, 0) {
-    branch_predictor_counters_.fill(1);
-}
+    : config_(config), memory_(memory_size_bytes, 0) {}
 
 void CPU::reset() {
     regs_.fill(0);
-    branch_predictor_counters_.fill(1);
     pc_ = kResetPC;
     halted_ = false;
+    memory_writes_.clear();
     stats_ = ExecutionStats{};
 }
 
@@ -101,6 +99,7 @@ uint32_t CPU::read_u32(uint32_t address) const {
 void CPU::write_u8(uint32_t address, uint8_t value) {
     validate_memory_access(address, sizeof(uint8_t));
     memory_[address] = value;
+    record_memory_write(address, sizeof(uint8_t));
 }
 
 void CPU::write_u16(uint32_t address, uint16_t value) {
@@ -108,6 +107,7 @@ void CPU::write_u16(uint32_t address, uint16_t value) {
 
     memory_[address] = static_cast<uint8_t>(value & 0xFFu);
     memory_[address + 1] = static_cast<uint8_t>((value >> 8) & 0xFFu);
+    record_memory_write(address, sizeof(uint16_t));
 }
 
 void CPU::write_u32(uint32_t address, uint32_t value) {
@@ -117,6 +117,7 @@ void CPU::write_u32(uint32_t address, uint32_t value) {
     memory_[address + 1] = static_cast<uint8_t>((value >> 8) & 0xFFu);
     memory_[address + 2] = static_cast<uint8_t>((value >> 16) & 0xFFu);
     memory_[address + 3] = static_cast<uint8_t>((value >> 24) & 0xFFu);
+    record_memory_write(address, sizeof(uint32_t));
 }
 
 void CPU::load_program(const std::vector<uint8_t>& program,
@@ -129,6 +130,7 @@ void CPU::load_program(const std::vector<uint8_t>& program,
     std::copy(program.begin(), program.end(), memory_.begin() + base_address);
     pc_ = base_address;
     halted_ = false;
+    clear_memory_writes();
 }
 
 std::size_t CPU::memory_size() const {
@@ -141,6 +143,14 @@ const std::vector<uint8_t>& CPU::memory() const {
 
 std::vector<uint8_t>& CPU::mutable_memory() {
     return memory_;
+}
+
+const std::vector<MemoryWrite>& CPU::memory_writes() const {
+    return memory_writes_;
+}
+
+void CPU::clear_memory_writes() {
+    memory_writes_.clear();
 }
 
 const ExecutionStats& CPU::stats() const {
@@ -163,38 +173,6 @@ void CPU::halt() {
     halted_ = true;
 }
 
-bool CPU::predict_branch(uint32_t pc) const {
-    switch (config_.branch_predictor_type) {
-        case BranchPredictorType::AlwaysNotTaken:
-            return false;
-        case BranchPredictorType::AlwaysTaken:
-            return true;
-        case BranchPredictorType::TwoBitSaturatingCounter: {
-            const std::size_t index =
-                (pc >> 2) % branch_predictor_counters_.size();
-            return branch_predictor_counters_[index] >= 2;
-        }
-    }
-
-    return false;
-}
-
-void CPU::update_branch_predictor(uint32_t pc, bool taken) {
-    if (config_.branch_predictor_type !=
-        BranchPredictorType::TwoBitSaturatingCounter) {
-        return;
-    }
-
-    const std::size_t index = (pc >> 2) % branch_predictor_counters_.size();
-    uint8_t& counter = branch_predictor_counters_[index];
-
-    if (taken && counter < 3) {
-        ++counter;
-    } else if (!taken && counter > 0) {
-        --counter;
-    }
-}
-
 void CPU::validate_register_index(uint8_t reg_index) const {
     if (reg_index >= kNumRegisters) {
         throw std::out_of_range("register index must be in range x0..x31");
@@ -210,6 +188,10 @@ void CPU::validate_memory_access(uint32_t address, std::size_t width) const {
     if (start > memory_.size() || width > memory_.size() - start) {
         throw std::out_of_range("memory access exceeds simulated RAM bounds");
     }
+}
+
+void CPU::record_memory_write(uint32_t address, uint32_t byte_count) {
+    memory_writes_.push_back(MemoryWrite{address, byte_count});
 }
 
 }  // namespace rv32i

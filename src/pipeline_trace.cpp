@@ -17,10 +17,6 @@ const char* latch_name(bool valid, uint32_t instruction) {
     return instruction_kind_name(decode_instruction(instruction).kind);
 }
 
-void write_csv_latch(std::ostream& output, bool valid, uint32_t instruction) {
-    output << (valid ? latch_name(valid, instruction) : "bubble");
-}
-
 void print_latch(std::ostream& output,
                  const char* name,
                  bool valid,
@@ -66,27 +62,6 @@ void print_pipeline_trace(std::ostream& output,
                 pipeline.mem_wb.valid,
                 pipeline.mem_wb.pc,
                 pipeline.mem_wb.instruction);
-}
-
-void write_pipeline_trace_csv_header(std::ostream& output) {
-    output << "cycle,pc,if_id,id_ex,ex_mem,mem_wb,retired,stalls,"
-              "branch_mispredictions\n";
-}
-
-void write_pipeline_trace_csv_row(std::ostream& output,
-                                  const CPU& cpu,
-                                  const PipelineRegisters& pipeline) {
-    output << cpu.stats().clock_cycles << ',' << cpu.pc() << ',';
-    write_csv_latch(output, pipeline.if_id.valid, pipeline.if_id.instruction);
-    output << ',';
-    write_csv_latch(output, pipeline.id_ex.valid, pipeline.id_ex.instruction);
-    output << ',';
-    write_csv_latch(output, pipeline.ex_mem.valid, pipeline.ex_mem.instruction);
-    output << ',';
-    write_csv_latch(output, pipeline.mem_wb.valid, pipeline.mem_wb.instruction);
-    output << ',' << cpu.stats().instruction_count << ','
-           << cpu.stats().stall_cycles << ','
-           << cpu.stats().branch_mispredictions << '\n';
 }
 
 }  // namespace rv32i

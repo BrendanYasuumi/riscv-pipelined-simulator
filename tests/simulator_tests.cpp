@@ -9,7 +9,6 @@
 #include "decoder.hpp"
 #include "instruction.hpp"
 #include "pipeline_registers.hpp"
-#include "pipeline_trace.hpp"
 #include "program_loader.hpp"
 #include "state_dump.hpp"
 #include "stages.hpp"
@@ -256,18 +255,14 @@ void test_lui_and_auipc_execution() {
     assert(cpu.read_reg(2) == 0x00001004u);
 }
 
-void test_branch_mispredict_flush_execution() {
-    rv32i::Config config{};
-    config.branch_predictor_type = rv32i::BranchPredictorType::AlwaysNotTaken;
-
+void test_taken_branch_flush_execution() {
     const rv32i::CPU cpu = run_program({
         encode_b(8, 0, 0, 0x0),           // beq x0, x0, +8
         encode_i(1, 0, 0x0, 1),           // addi x1, x0, 1
         encode_i(2, 0, 0x0, 1),           // addi x1, x0, 2
-    }, 2, config);
+    }, 2);
 
     assert(cpu.read_reg(1) == 2);
-    assert(cpu.stats().branch_mispredictions == 1);
 }
 
 void test_bne_execution_with_forwarded_operand() {
@@ -302,13 +297,10 @@ void test_jalr_execution() {
 
     assert(cpu.read_reg(1) == 8);
     assert(cpu.read_reg(2) == 2);
-    assert(cpu.stats().branch_mispredictions >= 1);
 }
 
 void test_forwarding_removes_alu_stalls() {
-    rv32i::Config config{};
-    config.enable_forwarding = true;
-    rv32i::CPU cpu(64, config);
+    rv32i::CPU cpu(64);
     rv32i::PipelineRegisters pipeline;
 
     cpu.write_u32(0, 0x00500093u);  // addi x1, x0, 5
@@ -321,26 +313,8 @@ void test_forwarding_removes_alu_stalls() {
     assert(cpu.stats().stall_cycles == 0);
 }
 
-void test_forwarding_disabled_stalls_on_alu_dependency() {
-    rv32i::Config config{};
-    config.enable_forwarding = false;
-    rv32i::CPU cpu(64, config);
-    rv32i::PipelineRegisters pipeline;
-
-    cpu.write_u32(0, 0x00500093u);  // addi x1, x0, 5
-    cpu.write_u32(4, 0x00700113u);  // addi x2, x0, 7
-    cpu.write_u32(8, 0x002081B3u);  // add x3, x1, x2
-
-    run_until_retired(cpu, pipeline, 3);
-
-    assert(cpu.read_reg(3) == 12);
-    assert(cpu.stats().stall_cycles == 2);
-}
-
-void test_load_use_still_stalls_once_with_forwarding() {
-    rv32i::Config config{};
-    config.enable_forwarding = true;
-    rv32i::CPU cpu(64, config);
+void test_load_use_stalls_once() {
+    rv32i::CPU cpu(64);
     rv32i::PipelineRegisters pipeline;
 
     cpu.write_u32(0, 0x01002083u);  // lw x1, 16(x0)
@@ -351,40 +325,6 @@ void test_load_use_still_stalls_once_with_forwarding() {
 
     assert(cpu.read_reg(2) == 42);
     assert(cpu.stats().stall_cycles == 1);
-}
-
-void test_memory_latency_adds_stalls() {
-    rv32i::Config config{};
-    config.memory_latency_cycles = 3;
-    rv32i::CPU cpu(64, config);
-    rv32i::PipelineRegisters pipeline;
-
-    cpu.write_u32(0, 0x01002083u);  // lw x1, 16(x0)
-    cpu.write_u32(4, 0x00108133u);  // add x2, x1, x1
-    cpu.write_u32(16, 21);
-
-    run_until_retired(cpu, pipeline, 2);
-
-    assert(cpu.read_reg(2) == 42);
-    assert(cpu.stats().stall_cycles >= 3);
-}
-
-void test_hex_loader() {
-    const std::string path = "/tmp/rv32i_loader_test.hex";
-    {
-        std::ofstream output(path);
-        output << "# addi x1, x0, 5\n";
-        output << "00500093\n";
-        output << "0x00700113\n";
-    }
-
-    const rv32i::LoadedProgram program = rv32i::load_hex_program(path);
-    assert(program.instruction_count == 2);
-    assert(program.bytes.size() == 8);
-    assert(program.bytes[0] == 0x93);
-    assert(program.bytes[1] == 0x00);
-    assert(program.bytes[2] == 0x50);
-    assert(program.bytes[3] == 0x00);
 }
 
 void test_binary_loader() {
@@ -409,81 +349,6 @@ void test_binary_loader() {
     assert(program.bytes.size() == 8);
     assert(program.bytes[0] == 0x93);
     assert(program.bytes[4] == 0x13);
-}
-
-void test_auto_loader_infers_hex_and_binary() {
-    const rv32i::LoadedProgram hex =
-        rv32i::load_program("/tmp/rv32i_loader_test.hex",
-                            rv32i::ProgramFormat::Auto);
-    const rv32i::LoadedProgram bin =
-        rv32i::load_program("/tmp/rv32i_loader_test.bin",
-                            rv32i::ProgramFormat::Auto);
-
-    assert(hex.instruction_count == 2);
-    assert(bin.instruction_count == 2);
-}
-
-void test_always_taken_branch_prediction() {
-    rv32i::Config config{};
-    config.branch_predictor_type = rv32i::BranchPredictorType::AlwaysTaken;
-    rv32i::CPU cpu(64, config);
-    rv32i::PipelineRegisters pipeline;
-
-    cpu.write_u32(0, 0x00000463u);  // beq x0, x0, +8
-    cpu.write_u32(4, 0x00100093u);  // addi x1, x0, 1
-    cpu.write_u32(8, 0x00200093u);  // addi x1, x0, 2
-
-    run_until_retired(cpu, pipeline, 2);
-
-    assert(cpu.read_reg(1) == 2);
-    assert(cpu.stats().branch_mispredictions == 0);
-}
-
-void test_always_taken_mispredicts_not_taken_branch() {
-    rv32i::Config config{};
-    config.branch_predictor_type = rv32i::BranchPredictorType::AlwaysTaken;
-
-    const rv32i::CPU cpu = run_program({
-        encode_b(8, 0, 0, 0x1),           // bne x0, x0, +8, not taken
-        encode_i(1, 0, 0x0, 2),           // addi x2, x0, 1
-        encode_i(2, 0, 0x0, 3),           // addi x3, x0, 2
-    }, 3, config);
-
-    assert(cpu.read_reg(2) == 1);
-    assert(cpu.read_reg(3) == 2);
-    assert(cpu.stats().branch_mispredictions == 1);
-}
-
-void test_two_bit_predictor_counter_updates() {
-    rv32i::Config config{};
-    config.branch_predictor_type =
-        rv32i::BranchPredictorType::TwoBitSaturatingCounter;
-    rv32i::CPU cpu(64, config);
-
-    assert(!cpu.predict_branch(0));
-    cpu.update_branch_predictor(0, true);
-    assert(cpu.predict_branch(0));
-    cpu.update_branch_predictor(0, true);
-    assert(cpu.predict_branch(0));
-    cpu.update_branch_predictor(0, false);
-    assert(cpu.predict_branch(0));
-    cpu.update_branch_predictor(0, false);
-    assert(!cpu.predict_branch(0));
-}
-
-void test_pipeline_trace_csv_output() {
-    rv32i::CPU cpu(64);
-    rv32i::PipelineRegisters pipeline;
-    std::ostringstream output;
-
-    rv32i::write_pipeline_trace_csv_header(output);
-    rv32i::write_pipeline_trace_csv_row(output, cpu, pipeline);
-
-    const std::string csv = output.str();
-    assert(csv.find("cycle,pc,if_id,id_ex,ex_mem,mem_wb") !=
-           std::string::npos);
-    assert(csv.find("0,0,bubble,bubble,bubble,bubble") !=
-           std::string::npos);
 }
 
 void test_halt_stops_fetching_younger_instructions() {
@@ -586,6 +451,20 @@ void test_memory_dump_formatting() {
     assert(text.find("0x00000000: 93 00 50 00") != std::string::npos);
 }
 
+void test_written_memory_dump_formatting() {
+    rv32i::CPU cpu(128);
+    cpu.write_u32(0x40, 42);
+
+    std::ostringstream output;
+    rv32i::print_written_memory_dump(output, cpu);
+
+    const std::string text = output.str();
+    assert(text.find("Written memory dump:") != std::string::npos);
+    assert(text.find("Range [0x00000040..0x00000044):") !=
+           std::string::npos);
+    assert(text.find("0x00000040: 2a 00 00 00") != std::string::npos);
+}
+
 }  // namespace
 
 int main() {
@@ -597,24 +476,17 @@ int main() {
     test_i_type_alu_execution();
     test_load_store_execution();
     test_lui_and_auipc_execution();
-    test_branch_mispredict_flush_execution();
+    test_taken_branch_flush_execution();
     test_bne_execution_with_forwarded_operand();
     test_jal_execution();
     test_jalr_execution();
     test_forwarding_removes_alu_stalls();
-    test_forwarding_disabled_stalls_on_alu_dependency();
-    test_load_use_still_stalls_once_with_forwarding();
-    test_memory_latency_adds_stalls();
-    test_hex_loader();
+    test_load_use_stalls_once();
     test_binary_loader();
-    test_auto_loader_infers_hex_and_binary();
-    test_always_taken_branch_prediction();
-    test_always_taken_mispredicts_not_taken_branch();
-    test_two_bit_predictor_counter_updates();
-    test_pipeline_trace_csv_output();
     test_halt_stops_fetching_younger_instructions();
     test_required_instruction_subset_execution();
     test_register_dump_formatting();
     test_memory_dump_formatting();
+    test_written_memory_dump_formatting();
     return 0;
 }

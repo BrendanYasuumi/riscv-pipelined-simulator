@@ -4,7 +4,6 @@
 #include "hazard_unit.hpp"
 #include "instruction.hpp"
 
-#include <algorithm>
 #include <cstdint>
 
 namespace rv32i {
@@ -156,20 +155,10 @@ void stage_WB(CPU& cpu, PipelineRegisters& pipeline) {
     ++cpu.mutable_stats().instruction_count;
 }
 
-void stage_MEM(CPU& cpu, PipelineRegisters& pipeline, StageControl& control) {
+void stage_MEM(CPU& cpu, PipelineRegisters& pipeline) {
     const EXMEMRegister& ex_mem = pipeline.ex_mem;
     if (!ex_mem.valid) {
         pipeline.next_mem_wb.clear();
-        return;
-    }
-
-    if ((ex_mem.control.mem_read || ex_mem.control.mem_write) &&
-        ex_mem.memory_cycles_remaining > 1) {
-        pipeline.next_ex_mem = ex_mem;
-        --pipeline.next_ex_mem.memory_cycles_remaining;
-        pipeline.next_mem_wb.clear();
-        control.stall_pipeline = true;
-        ++cpu.mutable_stats().stall_cycles;
         return;
     }
 
@@ -201,8 +190,7 @@ void stage_EX(CPU& cpu, PipelineRegisters& pipeline, StageControl& control) {
         return;
     }
 
-    const ForwardedOperands operands =
-        resolve_forwarding(id_ex, pipeline, cpu.config().enable_forwarding);
+    const ForwardedOperands operands = resolve_forwarding(id_ex, pipeline);
 
     const uint32_t lhs = id_ex.control.alu_src_pc ? id_ex.pc
                                                   : operands.rs1_value;
@@ -220,11 +208,6 @@ void stage_EX(CPU& cpu, PipelineRegisters& pipeline, StageControl& control) {
     next.pc_plus_4 = id_ex.pc + 4;
     next.immediate = static_cast<uint32_t>(id_ex.immediate);
     next.control = id_ex.control;
-    next.memory_cycles_remaining =
-        (id_ex.control.mem_read || id_ex.control.mem_write)
-            ? std::max<uint32_t>(1, cpu.config().memory_latency_cycles)
-            : 0;
-
     bool control_flow_resolved = false;
     bool actual_taken = false;
     uint32_t actual_target = id_ex.pc + 4;
@@ -239,7 +222,6 @@ void stage_EX(CPU& cpu, PipelineRegisters& pipeline, StageControl& control) {
                          : id_ex.pc + 4;
         next.branch_taken = actual_taken;
         next.branch_target = actual_target;
-        cpu.update_branch_predictor(id_ex.pc, actual_taken);
     } else if (id_ex.control.jump) {
         control_flow_resolved = true;
         actual_taken = true;
@@ -250,15 +232,9 @@ void stage_EX(CPU& cpu, PipelineRegisters& pipeline, StageControl& control) {
         next.branch_target = actual_target;
     }
 
-    const bool mispredicted =
-        control_flow_resolved &&
-        (id_ex.predicted_taken != actual_taken ||
-         (actual_taken && id_ex.predicted_target != actual_target));
-
-    if (mispredicted) {
+    if (control_flow_resolved && actual_taken) {
         cpu.set_pc(actual_target);
         control.flush_id_ex = true;
-        ++cpu.mutable_stats().branch_mispredictions;
     }
 
     pipeline.next_ex_mem = next;
@@ -293,8 +269,6 @@ void stage_ID(CPU& cpu,
     next.valid = true;
     next.pc = if_id.pc;
     next.instruction = if_id.instruction;
-    next.predicted_taken = if_id.predicted_taken;
-    next.predicted_target = if_id.predicted_target;
     next.format = decoded.format;
     next.rd = decoded.rd;
     next.rs1 = decoded.rs1;
@@ -326,20 +300,8 @@ void stage_IF(CPU& cpu, PipelineRegisters& pipeline) {
     next.valid = true;
     next.pc = pc;
     next.instruction = cpu.read_u32(pc);
-    next.predicted_target = pc + 4;
 
-    const DecodedInstruction decoded = decode_instruction(next.instruction);
-    if (is_valid_instruction(decoded)) {
-        if (decoded.control.branch && cpu.predict_branch(pc)) {
-            next.predicted_taken = true;
-            next.predicted_target = pc + static_cast<uint32_t>(decoded.immediate);
-        } else if (decoded.kind == InstructionKind::Jal) {
-            next.predicted_taken = true;
-            next.predicted_target = pc + static_cast<uint32_t>(decoded.immediate);
-        }
-    }
-
-    cpu.set_pc(next.predicted_taken ? next.predicted_target : pc + 4);
+    cpu.set_pc(pc + 4);
     pipeline.next_if_id = next;
 }
 
@@ -348,21 +310,12 @@ void run_pipeline_cycle(CPU& cpu, PipelineRegisters& pipeline) {
 
     StageControl control{};
     stage_WB(cpu, pipeline);
-    stage_MEM(cpu, pipeline, control);
-
-    if (control.stall_pipeline) {
-        pipeline.next_id_ex = pipeline.id_ex;
-        pipeline.next_if_id = pipeline.if_id;
-        pipeline.commit();
-        cpu.tick();
-        return;
-    }
+    stage_MEM(cpu, pipeline);
 
     stage_EX(cpu, pipeline, control);
 
     if (!control.flush_id_ex) {
-        const HazardDecision hazard =
-            detect_raw_hazard(pipeline, cpu.config().enable_forwarding);
+        const HazardDecision hazard = detect_raw_hazard(pipeline);
         control.stall_fetch_decode = hazard.stall;
 
         if (hazard.stall) {

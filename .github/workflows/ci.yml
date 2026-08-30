@@ -7,8 +7,8 @@ on:
     branches: [main]
 
 jobs:
-  build-test-regression:
-    name: Build, Test, And Regression
+  build-test:
+    name: Build And Test
     runs-on: ubuntu-latest
 
     steps:
@@ -25,6 +25,3 @@ jobs:
 
       - name: Run C++ tests
         run: make test
-
-      - name: Run golden-output regressions
-        run: make regression

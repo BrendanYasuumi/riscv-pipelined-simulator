@@ -12,7 +12,6 @@ struct ForwardedOperands {
 };
 
 ForwardedOperands resolve_forwarding(const IDEXRegister& id_ex,
-                                     const PipelineRegisters& pipeline,
-                                     bool enable_forwarding);
+                                     const PipelineRegisters& pipeline);
 
 }  // namespace rv32i

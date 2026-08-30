@@ -6,6 +6,9 @@ simulator
 simulator_tests
 emulator
 
+# Generated assembly/build artifacts
+build/
+
 # VS Code settings
 .vscode/
 

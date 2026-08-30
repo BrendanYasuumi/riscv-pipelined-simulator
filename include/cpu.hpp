@@ -13,17 +13,20 @@ struct ExecutionStats {
     uint64_t clock_cycles = 0;
     uint64_t instruction_count = 0;
     uint64_t stall_cycles = 0;
-    uint64_t branch_mispredictions = 0;
 
     double cpi() const;
     double ipc() const;
+};
+
+struct MemoryWrite {
+    uint32_t address = 0;
+    uint32_t byte_count = 0;
 };
 
 class CPU {
 public:
     static constexpr std::size_t kNumRegisters = 32;
     static constexpr uint32_t kResetPC = 0;
-    static constexpr std::size_t kBranchPredictorEntries = 64;
 
     explicit CPU(std::size_t memory_size_bytes, Config config = {});
 
@@ -53,6 +56,8 @@ public:
     std::size_t memory_size() const;
     const std::vector<uint8_t>& memory() const;
     std::vector<uint8_t>& mutable_memory();
+    const std::vector<MemoryWrite>& memory_writes() const;
+    void clear_memory_writes();
 
     const ExecutionStats& stats() const;
     ExecutionStats& mutable_stats();
@@ -61,19 +66,17 @@ public:
     bool halted() const;
     void halt();
 
-    bool predict_branch(uint32_t pc) const;
-    void update_branch_predictor(uint32_t pc, bool taken);
-
 private:
     void validate_register_index(uint8_t reg_index) const;
     void validate_memory_access(uint32_t address, std::size_t width) const;
+    void record_memory_write(uint32_t address, uint32_t byte_count);
 
     Config config_;
     std::array<uint32_t, kNumRegisters> regs_{};
-    std::array<uint8_t, kBranchPredictorEntries> branch_predictor_counters_{};
     uint32_t pc_ = kResetPC;
     bool halted_ = false;
     std::vector<uint8_t> memory_;
+    std::vector<MemoryWrite> memory_writes_;
     ExecutionStats stats_{};
 };
 

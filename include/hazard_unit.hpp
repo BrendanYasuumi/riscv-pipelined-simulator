@@ -17,7 +17,6 @@ struct HazardDecision {
 };
 
 SourceRegisters get_source_registers(const DecodedInstruction& instruction);
-HazardDecision detect_raw_hazard(const PipelineRegisters& pipeline,
-                                 bool enable_forwarding);
+HazardDecision detect_raw_hazard(const PipelineRegisters& pipeline);
 
 }  // namespace rv32i

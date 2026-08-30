@@ -4,6 +4,7 @@
 #include <iomanip>
 #include <ostream>
 #include <stdexcept>
+#include <vector>
 
 namespace rv32i {
 
@@ -47,6 +48,65 @@ void print_memory_dump(std::ostream& output,
         }
 
         output << std::dec << std::setfill(' ') << '\n';
+    }
+}
+
+void print_written_memory_dump(std::ostream& output, const CPU& cpu) {
+    output << "\nWritten memory dump:\n";
+
+    if (cpu.memory_writes().empty()) {
+        output << "  <no memory writes>\n";
+        return;
+    }
+
+    std::vector<bool> touched(cpu.memory_size(), false);
+    for (const MemoryWrite& write : cpu.memory_writes()) {
+        const uint64_t end =
+            static_cast<uint64_t>(write.address) + write.byte_count;
+        if (end > cpu.memory_size()) {
+            throw std::out_of_range(
+                "recorded memory write exceeds simulated RAM bounds");
+        }
+
+        for (uint32_t address = write.address; address < end; ++address) {
+            touched[address] = true;
+        }
+    }
+
+    std::size_t address = 0;
+    while (address < touched.size()) {
+        while (address < touched.size() && !touched[address]) {
+            ++address;
+        }
+        if (address == touched.size()) {
+            break;
+        }
+
+        const std::size_t range_start = address;
+        while (address < touched.size() && touched[address]) {
+            ++address;
+        }
+        const std::size_t range_end = address;
+
+        output << "  Range [0x" << std::hex << std::setw(8)
+               << std::setfill('0') << range_start << "..0x"
+               << std::setw(8) << range_end << std::dec
+               << std::setfill(' ') << "):\n";
+
+        for (std::size_t row = range_start; row < range_end; row += 16) {
+            output << "    0x" << std::hex << std::setw(8)
+                   << std::setfill('0') << row << ":";
+
+            const std::size_t bytes_this_line =
+                std::min<std::size_t>(16, range_end - row);
+            for (std::size_t i = 0; i < bytes_this_line; ++i) {
+                output << ' ' << std::setw(2) << std::setfill('0')
+                       << static_cast<uint32_t>(
+                              cpu.read_u8(static_cast<uint32_t>(row + i)));
+            }
+
+            output << std::dec << std::setfill(' ') << '\n';
+        }
     }
 }
 
