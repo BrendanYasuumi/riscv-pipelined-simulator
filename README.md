@@ -245,11 +245,3 @@ src/pipeline_trace.cpp
 tests/simulator_tests.cpp
     C++ unit tests for simulator behavior.
 ```
-
-## Interview Summary
-
-I built a C++ RV32I simulator that runs real RISC-V assembly by using an
-external assembler to create a raw binary memory image. The simulator loads
-that binary at address zero, starts the program counter at zero, and advances a
-five-stage pipeline cycle by cycle until a halt instruction retires. At the end
-I inspect registers and memory to verify the program behaved correctly.
