@@ -217,18 +217,15 @@ int main(int argc, char* argv[]) {
                       << program.instruction_count << " word(s))\n";
         }
 
-        rv32i::CPU cpu(4096, options.config);
+        rv32i::CPU cpu(64 * 1024, options.config);
         rv32i::PipelineRegisters pipeline{};
         cpu.load_program(program.bytes);
 
         print_run_options(options.max_cycles);
 
-        const uint64_t target_retired = options.has_retire_count
-                                            ? options.retire_count
-                                            : program.instruction_count;
-
         while (!cpu.halted() &&
-               cpu.stats().instruction_count < target_retired &&
+               (!options.has_retire_count ||
+                cpu.stats().instruction_count < options.retire_count) &&
                cpu.stats().clock_cycles < options.max_cycles) {
             if (options.trace) {
                 rv32i::print_pipeline_trace(std::cout, cpu, pipeline);
@@ -253,9 +250,9 @@ int main(int argc, char* argv[]) {
         }
 
         const bool reached_target =
-            cpu.stats().instruction_count >= target_retired;
-        const bool clean_halt = cpu.halted() && !options.has_retire_count;
-        if (!reached_target && !clean_halt) {
+            options.has_retire_count &&
+            cpu.stats().instruction_count >= options.retire_count;
+        if (!cpu.halted() && !reached_target) {
             std::cerr << "\nSimulation stopped before all instructions retired\n";
             return EXIT_FAILURE;
         }

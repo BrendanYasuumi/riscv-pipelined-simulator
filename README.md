@@ -2,20 +2,20 @@
 
 A C++17 simulator for a small RV32I RISC-V CPU pipeline.
 
-The project is now assembly-first: you write a `.s` RISC-V assembly program,
-the build script assembles it into machine code, and the simulator runs the
-resulting raw binary from simulated memory.
+The project uses an assembly-first workflow: you write a `.s` RISC-V assembly
+program, the build script assembles it into machine code, and the simulator
+runs the resulting raw binary from simulated memory.
 
-## Current Goal
+## Project Workflow
 
-This repo is focused on one clear workflow:
+This repo is centered on one clear workflow:
 
 ```text
 write assembly -> assemble/link -> create raw .bin -> run simulator -> inspect registers/memory
 ```
 
-That keeps the project centered on CPU fundamentals instead of extra
-architecture experiments.
+That keeps the project focused on CPU fundamentals and observable program
+state.
 
 ## What The Simulator Models
 
@@ -188,7 +188,7 @@ Print cycle-by-cycle pipeline latch state:
 Limit execution if a program gets stuck:
 
 ```bash
---max-cycles=500
+--max-cycles=1000
 ```
 
 ## File Map

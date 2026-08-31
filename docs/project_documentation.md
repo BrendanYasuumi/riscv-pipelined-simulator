@@ -65,28 +65,7 @@ Halted: yes
 
 `18 00 00 00` is the 32-bit value `24` stored in little-endian order.
 
-## What We Removed
-
-We intentionally removed or de-emphasized features that made the project harder
-to explain before the core workflow was comfortable:
-
-```text
-golden-output regression files
-make regression
-branch predictor policies
-branch misprediction counters
-multi-cycle memory latency knob
-CSV trace export
-hex example programs
-superscalar/cache placeholders
-no-forwarding CLI experiments
-duplicate toolchain/hex documentation
-```
-
-This does not make the simulator less useful for the current goal. It makes the
-story clearer.
-
-## What Stayed
+## Design Scope
 
 ```text
 assembly source workflow
@@ -107,6 +86,11 @@ memory dumps
 automatic written-memory dumps
 C++ unit tests
 ```
+
+The simulator focuses on the path from a human-written assembly program to
+final architectural state. Larger architecture experiments can be layered on
+later, but the core project is intentionally organized around running RV32I
+programs and inspecting the result.
 
 ## Important Architecture Concepts
 
@@ -177,7 +161,7 @@ pipeline inserts one bubble.
 
 ### Branches And Jumps
 
-The simplified simulator does not predict branches. It fetches the next
+The simulator does not predict branches. It fetches the next
 sequential instruction first. If EX later discovers that a branch or jump is
 taken, the simulator redirects the PC and flushes younger wrong-path work.
 
@@ -189,7 +173,7 @@ include/config.hpp
 
 include/cpu.hpp
 src/cpu.cpp
-    CPU architectural state: registers, PC, memory, halt flag, stats.
+    CPU architectural state: registers, PC, 64 KiB memory, halt flag, stats.
 
 include/decoder.hpp
 src/decoder.cpp
@@ -228,6 +212,16 @@ src/pipeline_trace.cpp
 
 asmFiles/store_word.s
     First assembly program.
+
+asmFiles/load_store.s
+asmFiles/bitwise.s
+asmFiles/branch_equal.s
+asmFiles/count_loop.s
+asmFiles/program1.s
+asmFiles/program3.s
+asmFiles/search.s
+    Assembly programs used to practice memory, bitwise logic, branches, loops,
+    stack usage, software multiplication, and search.
 
 scripts/run_asm.sh
     Assembly build/run script.
