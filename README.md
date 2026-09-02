@@ -144,6 +144,33 @@ execution, forwarding, load-use stalls, branches, jumps, halt, and state dumps.
 
 It does not run a user assembly program. Use `make run ASM=...` for that.
 
+## Run Assembly Memory Tests
+
+```bash
+make asm-test
+```
+
+`make asm-test` runs real assembly programs through the full workflow:
+
+```text
+.s source -> assembler -> linker -> raw .bin -> simulator -> memory check
+```
+
+Each test verifies one or more final memory words with:
+
+```bash
+--expect-memory=ADDRESS:VALUE
+```
+
+Example:
+
+```bash
+./simulator build/asm/store_word.bin --expect-memory=0x10:24
+```
+
+This means: after the program finishes, the 32-bit word at memory address
+`0x10` must equal decimal `24`.
+
 ## Useful Simulator Flags
 
 Run a binary directly:
@@ -179,6 +206,21 @@ Print every memory location written by the program:
 This is the easiest option while learning because you do not need to know in
 advance where the program stored its result.
 
+Check a final 32-bit memory value:
+
+```bash
+--expect-memory=ADDRESS:VALUE
+```
+
+Example:
+
+```bash
+--expect-memory=0x40:42
+```
+
+This is useful for automated tests because the simulator exits with failure if
+the final memory value does not match.
+
 Print cycle-by-cycle pipeline latch state:
 
 ```bash
@@ -199,6 +241,9 @@ asmFiles/
 
 scripts/run_asm.sh
     Converts a .s file into a raw .bin and runs the simulator.
+
+scripts/asm_memory_tests.sh
+    Runs assembly programs and checks expected final memory values.
 
 linker/rv32i.ld
     Places the assembled program at address 0x0.

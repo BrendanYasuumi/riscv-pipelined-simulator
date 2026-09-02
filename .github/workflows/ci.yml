@@ -20,8 +20,16 @@ jobs:
           c++ --version
           make --version
 
+      - name: Install RISC-V binutils
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y binutils-riscv64-unknown-elf
+
       - name: Build simulator
         run: make
 
       - name: Run C++ tests
         run: make test
+
+      - name: Run assembly memory tests
+        run: make asm-test

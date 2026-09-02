@@ -19,7 +19,7 @@ CORE_SOURCES := \
 SOURCES := main.cpp $(CORE_SOURCES)
 TEST_SOURCES := tests/simulator_tests.cpp $(CORE_SOURCES)
 
-.PHONY: all run test clean
+.PHONY: all run test asm-test clean
 
 all: $(TARGET)
 
@@ -34,6 +34,9 @@ $(TEST_TARGET): $(TEST_SOURCES)
 
 test: $(TEST_TARGET)
 	./$(TEST_TARGET)
+
+asm-test: $(TARGET)
+	./scripts/asm_memory_tests.sh
 
 clean:
 	rm -f $(TARGET) $(TEST_TARGET)
