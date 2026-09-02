@@ -132,6 +132,24 @@ Halted: yes
 
 `18 00 00 00` is decimal `24` stored as a 32-bit little-endian word.
 
+## Trace Pipeline Cycles
+
+```bash
+make trace ASM=asmFiles/load_store.s
+```
+
+`make trace` prints a bounded cycle-by-cycle view of the pipeline. By default
+it prints the first 25 cycles so large programs do not flood the terminal.
+
+Trace a later window:
+
+```bash
+make trace ASM=asmFiles/merge_sort.s TRACE_ARGS="--trace-start=100 --trace-limit=20"
+```
+
+This means: run `merge_sort.s`, but only print 20 trace entries starting at
+cycle 100.
+
 ## Run Tests
 
 ```bash
@@ -225,6 +243,18 @@ Print cycle-by-cycle pipeline latch state:
 
 ```bash
 --trace
+```
+
+Start tracing at a specific cycle:
+
+```bash
+--trace-start=100
+```
+
+Limit how many trace entries are printed:
+
+```bash
+--trace-limit=20
 ```
 
 Limit execution if a program gets stuck:

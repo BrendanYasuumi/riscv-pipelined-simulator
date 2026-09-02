@@ -4,6 +4,7 @@ TARGET := simulator
 TEST_TARGET := simulator_tests
 ASM ?= asmFiles/store_word.s
 SIM_ARGS ?= --max-cycles=100000
+TRACE_ARGS ?= --trace --trace-limit=25
 
 CORE_SOURCES := \
 	src/cpu.cpp \
@@ -19,7 +20,7 @@ CORE_SOURCES := \
 SOURCES := main.cpp $(CORE_SOURCES)
 TEST_SOURCES := tests/simulator_tests.cpp $(CORE_SOURCES)
 
-.PHONY: all run test asm-test clean
+.PHONY: all run trace test asm-test clean
 
 all: $(TARGET)
 
@@ -28,6 +29,9 @@ $(TARGET): $(SOURCES)
 
 run: $(TARGET)
 	./scripts/run_asm.sh $(ASM) --dump-regs --dump-written-memory $(SIM_ARGS)
+
+trace: $(TARGET)
+	./scripts/run_asm.sh $(ASM) $(TRACE_ARGS) $(SIM_ARGS)
 
 $(TEST_TARGET): $(TEST_SOURCES)
 	$(CXX) $(CXXFLAGS) $(TEST_SOURCES) -o $(TEST_TARGET)

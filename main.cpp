@@ -41,6 +41,9 @@ struct CliOptions {
     uint32_t dump_memory_length = 0;
     std::vector<MemoryExpectation> memory_expectations;
     bool trace = false;
+    uint64_t trace_start = 0;
+    uint64_t trace_limit = 0;
+    bool has_trace_limit = false;
     bool show_help = false;
 };
 
@@ -148,6 +151,13 @@ CliOptions parse_cli(int argc, char* argv[]) {
             options.show_help = true;
         } else if (arg == "--trace") {
             options.trace = true;
+        } else if (arg.rfind("--trace-start=", 0) == 0) {
+            options.trace_start = parse_u64(arg.substr(14), "--trace-start");
+            options.trace = true;
+        } else if (arg.rfind("--trace-limit=", 0) == 0) {
+            options.trace_limit = parse_u64(arg.substr(14), "--trace-limit");
+            options.has_trace_limit = true;
+            options.trace = true;
         } else if (arg == "--dump-regs") {
             options.dump_regs = true;
         } else if (arg == "--dump-written-memory") {
@@ -184,6 +194,8 @@ void print_usage(const char* executable) {
     std::cout << "  --dump-written-memory\n";
     std::cout << "  --expect-memory=ADDRESS:VALUE\n";
     std::cout << "  --trace\n";
+    std::cout << "  --trace-start=N\n";
+    std::cout << "  --trace-limit=N\n";
     std::cout << "  --help\n";
 }
 
@@ -203,6 +215,17 @@ void print_demo_program() {
 void print_run_options(uint64_t max_cycles) {
     std::cout << "\nRun options:\n";
     std::cout << "  Max cycles:       " << max_cycles << '\n';
+}
+
+bool should_print_trace(const CliOptions& options,
+                        uint64_t current_cycle,
+                        uint64_t trace_lines_printed) {
+    if (!options.trace || current_cycle < options.trace_start) {
+        return false;
+    }
+
+    return !options.has_trace_limit ||
+           trace_lines_printed < options.trace_limit;
 }
 
 void print_registers(const rv32i::CPU& cpu) {
@@ -277,12 +300,16 @@ int main(int argc, char* argv[]) {
 
         print_run_options(options.max_cycles);
 
+        uint64_t trace_lines_printed = 0;
         while (!cpu.halted() &&
                (!options.has_retire_count ||
                 cpu.stats().instruction_count < options.retire_count) &&
                cpu.stats().clock_cycles < options.max_cycles) {
-            if (options.trace) {
+            if (should_print_trace(options,
+                                   cpu.stats().clock_cycles,
+                                   trace_lines_printed)) {
                 rv32i::print_pipeline_trace(std::cout, cpu, pipeline);
+                ++trace_lines_printed;
             }
             rv32i::run_pipeline_cycle(cpu, pipeline);
         }
