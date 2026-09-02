@@ -132,6 +132,26 @@ Halted: yes
 
 `18 00 00 00` is decimal `24` stored as a 32-bit little-endian word.
 
+## Run All Examples
+
+```bash
+make examples
+```
+
+`make examples` runs the assembly programs in `asmFiles/` and prints a compact
+summary for each one:
+
+```text
+load_store    halted=yes cycles=11     retired=6      stalls=1
+  writes: [0x00000040..0x00000044)
+```
+
+Full simulator output for each example is saved under:
+
+```text
+build/examples/
+```
+
 ## Trace Pipeline Cycles
 
 ```bash
@@ -311,6 +331,9 @@ scripts/run_asm.sh
 
 scripts/asm_memory_tests.sh
     Runs assembly programs and checks expected final memory values.
+
+scripts/run_examples.sh
+    Runs all example assembly programs and prints a compact summary.
 
 linker/rv32i.ld
     Places the assembled program at address 0x0.

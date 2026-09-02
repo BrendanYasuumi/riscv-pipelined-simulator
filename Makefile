@@ -20,7 +20,7 @@ CORE_SOURCES := \
 SOURCES := main.cpp $(CORE_SOURCES)
 TEST_SOURCES := tests/simulator_tests.cpp $(CORE_SOURCES)
 
-.PHONY: all run trace test asm-test clean
+.PHONY: all run trace examples test asm-test clean
 
 all: $(TARGET)
 
@@ -32,6 +32,9 @@ run: $(TARGET)
 
 trace: $(TARGET)
 	./scripts/run_asm.sh $(ASM) $(TRACE_ARGS) $(SIM_ARGS)
+
+examples: $(TARGET)
+	./scripts/run_examples.sh
 
 $(TEST_TARGET): $(TEST_SOURCES)
 	$(CXX) $(CXXFLAGS) $(TEST_SOURCES) -o $(TEST_TARGET)
