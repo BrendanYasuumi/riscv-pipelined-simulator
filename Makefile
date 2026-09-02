@@ -3,7 +3,7 @@ CXXFLAGS ?= -std=c++17 -Wall -Wextra -Wpedantic -Iinclude
 TARGET := simulator
 TEST_TARGET := simulator_tests
 ASM ?= asmFiles/store_word.s
-SIM_ARGS ?= --max-cycles=1000
+SIM_ARGS ?= --max-cycles=100000
 
 CORE_SOURCES := \
 	src/cpu.cpp \
