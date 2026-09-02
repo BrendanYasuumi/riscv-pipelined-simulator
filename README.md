@@ -150,6 +150,24 @@ make trace ASM=asmFiles/merge_sort.s TRACE_ARGS="--trace-start=100 --trace-limit
 This means: run `merge_sort.s`, but only print 20 trace entries starting at
 cycle 100.
 
+### Load-Use Hazard Demo
+
+```bash
+make trace ASM=asmFiles/hazard_demo.s TRACE_ARGS="--trace --trace-limit=12"
+```
+
+`hazard_demo.s` intentionally runs:
+
+```asm
+lw   x1, 0(x10)
+add  x2, x1, x1
+```
+
+The `add` instruction needs `x1` immediately after `lw` loads it from memory.
+Because load data is not ready soon enough for the next instruction's execute
+stage, the hazard unit inserts one bubble. This is why the final stats include
+a load-use stall cycle.
+
 ## Run Tests
 
 ```bash

@@ -53,6 +53,11 @@ run_case "count_loop" \
     1000 \
     --expect-memory=0x40:5
 
+run_case "hazard_demo" \
+    "asmFiles/hazard_demo.s" \
+    1000 \
+    --expect-memory=0x40:42
+
 run_case "multiply" \
     "asmFiles/program1.s" \
     1000 \
