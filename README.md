@@ -168,6 +168,25 @@ Because load data is not ready soon enough for the next instruction's execute
 stage, the hazard unit inserts one bubble. This is why the final stats include
 a load-use stall cycle.
 
+### Branch Control Hazard Demo
+
+```bash
+make trace ASM=asmFiles/branch_demo.s TRACE_ARGS="--trace --trace-limit=12"
+```
+
+`branch_demo.s` intentionally runs:
+
+```asm
+beq  x1, x2, taken
+ecall
+taken:
+sw   x4, 0(x3)
+```
+
+The `ecall` after the branch is the wrong-path instruction. Since the branch is
+taken, the simulator redirects the PC in the execute stage and flushes that
+wrong-path instruction before it can retire.
+
 ## Run Tests
 
 ```bash

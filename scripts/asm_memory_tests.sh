@@ -48,6 +48,11 @@ run_case "branch_equal" \
     1000 \
     --expect-memory=0x40:0
 
+run_case "branch_demo" \
+    "asmFiles/branch_demo.s" \
+    1000 \
+    --expect-memory=0x40:1
+
 run_case "count_loop" \
     "asmFiles/count_loop.s" \
     1000 \
