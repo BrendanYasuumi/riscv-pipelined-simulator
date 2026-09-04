@@ -4,6 +4,7 @@
 /out
 simulator
 simulator_tests
+spike_state_adapter
 emulator
 
 # Generated assembly/build artifacts

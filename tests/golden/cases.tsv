@@ -1,0 +1,4 @@
+# name|assembly source|halt symbol|memory symbol:length|max simulator cycles
+store_word|tests/golden/programs/store_word.s|golden_halt|result:4|1000
+instruction_coverage|tests/golden/programs/instruction_coverage.s|golden_halt|result_signature:112|2000
+control_flow_coverage|tests/golden/programs/control_flow_coverage.s|golden_halt|control_results:12|2000

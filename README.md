@@ -305,6 +305,23 @@ Example:
 This means: after the program finishes, the 32-bit word at memory address
 `0x10` must equal decimal `24`.
 
+## Compare Against Spike
+
+```bash
+make golden
+```
+
+This assembles relocatable RV32I programs, runs the same program image on this
+simulator and Spike, converts both final states to the
+`rv32i-architectural-state-v1` JSON schema, and performs an exact comparison.
+
+The golden suite currently compares all 32 registers, final PC, halt state,
+and declared memory regions for store, instruction, and control-flow coverage.
+A passing test reports `PASS (diff = 0)`.
+
+See [`docs/golden_reference.md`](docs/golden_reference.md) for installation,
+design rationale, generated files, and instructions for adding a test.
+
 ## Useful Simulator Flags
 
 Run a binary directly:
@@ -391,6 +408,18 @@ Limit execution if a program gets stuck:
 --max-cycles=1000
 ```
 
+Load a raw binary at a nonzero simulated address:
+
+```bash
+--load-address=0x10000
+```
+
+Choose simulated RAM size in bytes:
+
+```bash
+--memory-size=0x20000
+```
+
 ## File Map
 
 ```text
@@ -405,6 +434,9 @@ scripts/asm_memory_tests.sh
 
 scripts/run_examples.sh
     Runs all example assembly programs and prints a compact summary.
+
+scripts/run_spike_golden.sh
+    Compares canonical simulator state against Spike.
 
 linker/rv32i.ld
     Places the assembled program at address 0x0.
@@ -446,6 +478,12 @@ src/state_dump.cpp
 
 docs/instruction_coverage.md
     Maps every implemented instruction to an executable assembly test.
+
+docs/golden_reference.md
+    Explains the Spike differential-testing workflow.
+
+tools/spike_state_adapter.cpp
+    Converts Spike debug output into the canonical state schema.
 
 include/pipeline_trace.hpp
 src/pipeline_trace.cpp

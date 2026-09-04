@@ -85,6 +85,7 @@ register dumps
 memory dumps
 automatic written-memory dumps
 machine-readable architectural-state JSON
+Spike differential testing
 C++ unit tests
 ```
 
@@ -136,8 +137,19 @@ memory is included automatically, or explicit regions can be selected with
 `STATE_ARGS="--state-memory=START:LENGTH"`.
 
 This format is separate from the human-readable terminal dump. A future golden
-reference runner can emit the same `rv32i-architectural-state-v1` schema, after
-which the two files can be compared field by field.
+reference runner emits the same `rv32i-architectural-state-v1` schema, after
+which the two files are compared exactly.
+
+### Spike Golden Reference
+
+`make golden` runs relocatable RV32I test programs on both the pipelined
+simulator and Spike. The harness compares all registers, normalized final PC,
+halt status, and selected memory. `PASS (diff = 0)` means the two independent
+models produced identical architectural state.
+
+Golden programs run at `0x10000` because Spike reserves low memory for internal
+devices. The simulator's `--load-address` and `--memory-size` options let it
+execute that exact relocated image.
 
 ### Pipeline
 
@@ -246,6 +258,15 @@ asmFiles/search.s
 
 docs/instruction_coverage.md
     Audits every implemented instruction against an assembly-level test.
+
+docs/golden_reference.md
+    Documents differential testing against Spike.
+
+tests/golden/
+    Relocatable assembly fixtures and their comparison manifest.
+
+tools/spike_state_adapter.cpp
+    Converts Spike state into the simulator's canonical JSON schema.
 
 scripts/run_asm.sh
     Assembly build/run script.

@@ -351,6 +351,16 @@ void test_binary_loader() {
     assert(program.bytes[4] == 0x13);
 }
 
+void test_program_load_at_nonzero_address() {
+    rv32i::CPU cpu(0x20000);
+    const std::vector<uint8_t> program{0x93, 0x00, 0x50, 0x00};
+
+    cpu.load_program(program, 0x10000);
+
+    assert(cpu.pc() == 0x10000);
+    assert(cpu.read_u32(0x10000) == 0x00500093u);
+}
+
 void test_halt_stops_fetching_younger_instructions() {
     const rv32i::CPU cpu = run_program_until_halt({
         0x00000073u,                 // ecall/halt
@@ -521,6 +531,7 @@ int main() {
     test_forwarding_removes_alu_stalls();
     test_load_use_stalls_once();
     test_binary_loader();
+    test_program_load_at_nonzero_address();
     test_halt_stops_fetching_younger_instructions();
     test_required_instruction_subset_execution();
     test_register_dump_formatting();

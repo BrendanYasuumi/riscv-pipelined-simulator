@@ -106,6 +106,30 @@ dump_architectural_state_json(requested_memory_ranges):
 Stable ordering and fixed-width values allow another RISC-V model to emit the
 same schema for a future field-by-field comparison.
 
+## Spike Golden Comparison
+
+```text
+for each golden test case:
+    assemble one relocatable RV32I source file
+    link ELF at address 0x10000
+    convert ELF payload to raw binary
+    resolve halt and memory symbols from ELF
+
+    run raw binary on pipelined simulator at address 0x10000
+    export simulator-state.json
+
+    run the same ELF on Spike
+    stop Spike when PC reaches golden_halt
+    read all registers, PC, and declared memory words
+    normalize Spike halt state and PC
+    export spike-state.json through the shared serializer
+
+    if simulator-state.json exactly equals spike-state.json:
+        PASS with diff = 0
+    else:
+        print the differing fields and FAIL
+```
+
 ## Pipeline Cycle
 
 ```text

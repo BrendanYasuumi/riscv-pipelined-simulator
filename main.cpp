@@ -32,6 +32,8 @@ struct MemoryExpectation {
 struct CliOptions {
     rv32i::Config config{};
     std::string program_path;
+    uint32_t load_address = 0;
+    uint32_t memory_size = 64 * 1024;
     uint64_t max_cycles = 100;
     uint64_t retire_count = 0;
     bool has_retire_count = false;
@@ -198,6 +200,22 @@ CliOptions parse_cli(int argc, char* argv[]) {
             parse_memory_expectation(arg.substr(16), options);
         } else if (arg.rfind("--max-cycles=", 0) == 0) {
             options.max_cycles = parse_u64(arg.substr(13), "--max-cycles");
+        } else if (arg.rfind("--load-address=", 0) == 0) {
+            const uint64_t address =
+                parse_u64_auto(arg.substr(15), "--load-address");
+            if (address > UINT32_MAX) {
+                throw std::runtime_error(
+                    "--load-address must fit in 32 bits");
+            }
+            options.load_address = static_cast<uint32_t>(address);
+        } else if (arg.rfind("--memory-size=", 0) == 0) {
+            const uint64_t size =
+                parse_u64_auto(arg.substr(14), "--memory-size");
+            if (size == 0 || size > UINT32_MAX) {
+                throw std::runtime_error(
+                    "--memory-size must be between 1 and 2^32-1 bytes");
+            }
+            options.memory_size = static_cast<uint32_t>(size);
         } else if (arg.rfind("--retire-count=", 0) == 0) {
             options.retire_count = parse_u64(arg.substr(15), "--retire-count");
             options.has_retire_count = true;
@@ -224,6 +242,8 @@ void print_usage(const char* executable) {
               << " [program.bin] [options]\n\n";
     std::cout << "Options:\n";
     std::cout << "  --max-cycles=N\n";
+    std::cout << "  --load-address=ADDRESS\n";
+    std::cout << "  --memory-size=BYTES\n";
     std::cout << "  --retire-count=N\n";
     std::cout << "  --dump-regs\n";
     std::cout << "  --dump-memory=START:LENGTH\n";
@@ -250,9 +270,12 @@ void print_demo_program() {
     }
 }
 
-void print_run_options(uint64_t max_cycles) {
+void print_run_options(const CliOptions& options) {
     std::cout << "\nRun options:\n";
-    std::cout << "  Max cycles:       " << max_cycles << '\n';
+    std::cout << "  Max cycles:       " << options.max_cycles << '\n';
+    std::cout << "  Load address:     0x" << std::hex << options.load_address
+              << std::dec << '\n';
+    std::cout << "  Memory size:      " << options.memory_size << " bytes\n";
 }
 
 bool should_print_trace(const CliOptions& options,
@@ -354,11 +377,11 @@ int main(int argc, char* argv[]) {
                       << program.instruction_count << " word(s))\n";
         }
 
-        rv32i::CPU cpu(64 * 1024, options.config);
+        rv32i::CPU cpu(options.memory_size, options.config);
         rv32i::PipelineRegisters pipeline{};
-        cpu.load_program(program.bytes);
+        cpu.load_program(program.bytes, options.load_address);
 
-        print_run_options(options.max_cycles);
+        print_run_options(options);
 
         uint64_t trace_lines_printed = 0;
         while (!cpu.halted() &&
