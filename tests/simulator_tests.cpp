@@ -360,6 +360,7 @@ void test_halt_stops_fetching_younger_instructions() {
     assert(cpu.halted());
     assert(cpu.stats().instruction_count == 1);
     assert(cpu.read_reg(1) == 0);
+    assert(cpu.pc() == 4);
 }
 
 void test_required_instruction_subset_execution() {
@@ -465,6 +466,43 @@ void test_written_memory_dump_formatting() {
     assert(text.find("0x00000040: 2a 00 00 00") != std::string::npos);
 }
 
+void test_architectural_state_json_formatting() {
+    rv32i::CPU cpu(128);
+    cpu.write_reg(1, 42);
+    cpu.set_pc(0x20);
+    cpu.write_u32(0x40, 0x12345678u);
+    cpu.halt();
+
+    std::ostringstream output;
+    rv32i::print_architectural_state_json(output, cpu);
+
+    const std::string text = output.str();
+    assert(text.find("\"schema\": \"rv32i-architectural-state-v1\"") !=
+           std::string::npos);
+    assert(text.find("\"pc\": \"0x00000020\"") != std::string::npos);
+    assert(text.find("\"halted\": true") != std::string::npos);
+    assert(text.find("\"x00\": \"0x00000000\"") != std::string::npos);
+    assert(text.find("\"x01\": \"0x0000002a\"") != std::string::npos);
+    assert(text.find("\"x31\": \"0x00000000\"") != std::string::npos);
+    assert(text.find(
+               "{\"start\": \"0x00000040\", \"length\": 4, "
+               "\"bytes\": \"78563412\"}") != std::string::npos);
+}
+
+void test_architectural_state_uses_explicit_memory_ranges() {
+    rv32i::CPU cpu(64);
+    cpu.mutable_memory()[0x10] = 0xAA;
+
+    std::ostringstream output;
+    rv32i::print_architectural_state_json(
+        output, cpu, {{0x10, 2}});
+
+    const std::string text = output.str();
+    assert(text.find(
+               "{\"start\": \"0x00000010\", \"length\": 2, "
+               "\"bytes\": \"aa00\"}") != std::string::npos);
+}
+
 }  // namespace
 
 int main() {
@@ -488,5 +526,7 @@ int main() {
     test_register_dump_formatting();
     test_memory_dump_formatting();
     test_written_memory_dump_formatting();
+    test_architectural_state_json_formatting();
+    test_architectural_state_uses_explicit_memory_ranges();
     return 0;
 }

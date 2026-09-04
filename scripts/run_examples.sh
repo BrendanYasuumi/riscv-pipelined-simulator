@@ -13,7 +13,7 @@ run_example() {
         --dump-written-memory \
         --max-cycles="$max_cycles" \
         >"$log_file" 2>&1; then
-        printf "%-16s FAIL\n" "$name"
+        printf "%-22s FAIL\n" "$name"
         echo "  log: $log_file"
         tail -n 40 "$log_file"
         exit 1
@@ -46,7 +46,7 @@ run_example() {
         }
     ' "$log_file")"
 
-    printf "%-16s halted=%-3s cycles=%-6s retired=%-6s stalls=%-4s\n" \
+    printf "%-22s halted=%-3s cycles=%-6s retired=%-6s stalls=%-4s\n" \
         "$name" "$halted" "$cycles" "$retired" "$stalls"
     echo "  writes: $ranges"
     echo "  log:    $log_file"
@@ -63,6 +63,8 @@ run_example "branch_demo" "asmFiles/branch_demo.s" 1000
 run_example "count_loop" "asmFiles/count_loop.s" 1000
 run_example "hazard_demo" "asmFiles/hazard_demo.s" 1000
 run_example "forwarding_demo" "asmFiles/forwarding_demo.s" 1000
+run_example "instruction_coverage" "asmFiles/instruction_coverage.s" 2000
+run_example "control_flow_coverage" "asmFiles/control_flow_coverage.s" 2000
 run_example "multiply" "asmFiles/program1.s" 1000
 run_example "days_estimate" "asmFiles/program3.s" 10000
 run_example "search" "asmFiles/search.s" 10000

@@ -82,6 +82,30 @@ dump_written_memory:
     print the final byte values for each written range
 ```
 
+## Machine-Readable Architectural State
+
+```text
+dump_architectural_state_json(requested_memory_ranges):
+    output schema version
+    output final PC
+    output halted true or false
+
+    for register x0 through x31:
+        output fixed-width 32-bit hexadecimal value
+
+    if explicit memory ranges were requested:
+        select those bytes
+    else:
+        select every byte written during execution
+
+    validate selected bytes are inside simulated RAM
+    merge adjacent and overlapping selections
+    output each range in ascending address order
+```
+
+Stable ordering and fixed-width values allow another RISC-V model to emit the
+same schema for a future field-by-field comparison.
+
 ## Pipeline Cycle
 
 ```text
@@ -115,6 +139,10 @@ run_pipeline_cycle:
         read source registers
         generate control signals
         write next ID/EX latch
+
+    halt barrier:
+        if a halt instruction is in ID, EX, MEM, or WB:
+            stop fetching younger instructions
 
     IF:
         fetch instruction at PC

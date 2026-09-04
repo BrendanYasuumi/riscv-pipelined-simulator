@@ -8,6 +8,72 @@
 
 namespace rv32i {
 
+namespace {
+
+std::vector<MemoryDumpRange> normalize_memory_ranges(
+    const CPU& cpu,
+    const std::vector<MemoryDumpRange>& requested_ranges) {
+    std::vector<bool> selected(cpu.memory_size(), false);
+
+    if (requested_ranges.empty()) {
+        for (const MemoryWrite& write : cpu.memory_writes()) {
+            const uint64_t end =
+                static_cast<uint64_t>(write.address) + write.byte_count;
+            if (end > cpu.memory_size()) {
+                throw std::out_of_range(
+                    "recorded memory write exceeds simulated RAM bounds");
+            }
+
+            for (uint32_t address = write.address; address < end; ++address) {
+                selected[address] = true;
+            }
+        }
+    } else {
+        for (const MemoryDumpRange& range : requested_ranges) {
+            const uint64_t end =
+                static_cast<uint64_t>(range.start_address) + range.byte_count;
+            if (end > cpu.memory_size()) {
+                throw std::out_of_range(
+                    "architectural-state memory range exceeds simulated RAM bounds");
+            }
+
+            for (uint32_t address = range.start_address; address < end;
+                 ++address) {
+                selected[address] = true;
+            }
+        }
+    }
+
+    std::vector<MemoryDumpRange> normalized;
+    std::size_t address = 0;
+    while (address < selected.size()) {
+        while (address < selected.size() && !selected[address]) {
+            ++address;
+        }
+        if (address == selected.size()) {
+            break;
+        }
+
+        const std::size_t start = address;
+        while (address < selected.size() && selected[address]) {
+            ++address;
+        }
+
+        normalized.push_back(
+            {static_cast<uint32_t>(start),
+             static_cast<uint32_t>(address - start)});
+    }
+
+    return normalized;
+}
+
+void print_hex32(std::ostream& output, uint32_t value) {
+    output << "0x" << std::hex << std::setw(8) << std::setfill('0') << value
+           << std::dec << std::setfill(' ');
+}
+
+}  // namespace
+
 void print_register_dump(std::ostream& output, const CPU& cpu) {
     output << "\nRegister dump:\n";
 
@@ -108,6 +174,56 @@ void print_written_memory_dump(std::ostream& output, const CPU& cpu) {
             output << std::dec << std::setfill(' ') << '\n';
         }
     }
+}
+
+void print_architectural_state_json(
+    std::ostream& output,
+    const CPU& cpu,
+    const std::vector<MemoryDumpRange>& memory_ranges) {
+    const std::vector<MemoryDumpRange> normalized_ranges =
+        normalize_memory_ranges(cpu, memory_ranges);
+
+    output << "{\n";
+    output << "  \"schema\": \"rv32i-architectural-state-v1\",\n";
+    output << "  \"pc\": \"";
+    print_hex32(output, cpu.pc());
+    output << "\",\n";
+    output << "  \"halted\": " << (cpu.halted() ? "true" : "false")
+           << ",\n";
+    output << "  \"registers\": {\n";
+
+    for (uint8_t reg = 0; reg < CPU::kNumRegisters; ++reg) {
+        output << "    \"x" << std::dec << std::setw(2) << std::setfill('0')
+               << static_cast<int>(reg) << "\": \"";
+        print_hex32(output, cpu.read_reg(reg));
+        output << "\"" << (reg + 1 == CPU::kNumRegisters ? "\n" : ",\n");
+    }
+
+    output << "  },\n";
+    output << "  \"memory\": [";
+    if (!normalized_ranges.empty()) {
+        output << '\n';
+    }
+
+    for (std::size_t index = 0; index < normalized_ranges.size(); ++index) {
+        const MemoryDumpRange& range = normalized_ranges[index];
+        output << "    {\"start\": \"";
+        print_hex32(output, range.start_address);
+        output << "\", \"length\": " << range.byte_count
+               << ", \"bytes\": \"";
+
+        for (uint32_t offset = 0; offset < range.byte_count; ++offset) {
+            output << std::hex << std::setw(2) << std::setfill('0')
+                   << static_cast<uint32_t>(
+                          cpu.read_u8(range.start_address + offset));
+        }
+
+        output << std::dec << std::setfill(' ') << "\"}"
+               << (index + 1 == normalized_ranges.size() ? "\n" : ",\n");
+    }
+
+    output << "  ]\n";
+    output << "}\n";
 }
 
 }  // namespace rv32i

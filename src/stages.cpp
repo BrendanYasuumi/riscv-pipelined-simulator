@@ -39,6 +39,12 @@ uint32_t select_writeback_value(const MEMWBRegister& mem_wb) {
     return 0;
 }
 
+bool halt_is_in_flight(const PipelineRegisters& pipeline) {
+    return (pipeline.id_ex.valid && pipeline.id_ex.control.halt) ||
+           (pipeline.ex_mem.valid && pipeline.ex_mem.control.halt) ||
+           (pipeline.mem_wb.valid && pipeline.mem_wb.control.halt);
+}
+
 uint32_t execute_alu(ALUOp op, uint32_t lhs, uint32_t rhs) {
     const uint32_t shamt = rhs & 0x1Fu;
 
@@ -325,7 +331,7 @@ void run_pipeline_cycle(CPU& cpu, PipelineRegisters& pipeline) {
 
     stage_ID(cpu, pipeline, control);
 
-    if (control.stop_fetch) {
+    if (control.stop_fetch || halt_is_in_flight(pipeline)) {
         pipeline.next_if_id.clear();
     } else if (!control.stall_fetch_decode) {
         stage_IF(cpu, pipeline);

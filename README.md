@@ -39,15 +39,21 @@ state.
 ## Supported Instructions
 
 ```text
-add   addi   and   andi
-beq   bge    bgeu  blt   bltu  bne
-jal   jalr   lui
-lw    sw
-or    ori
-sll   slli
-xor   xori
-nop   halt
+Arithmetic:    add  sub  addi
+Comparisons:   slt  sltu  slti  sltiu
+Bitwise:       and  or  xor  andi  ori  xori
+Shifts:        sll  srl  sra  slli  srli  srai
+Loads:         lb  lbu  lh  lhu  lw
+Stores:        sb  sh  sw
+Branches:      beq  bne  blt  bge  bltu  bgeu
+Upper values:  lui  auipc
+Jumps:         jal  jalr
+System:        ecall  ebreak
+Pseudo-op:     nop
 ```
+
+The executable coverage matrix is documented in
+[`docs/instruction_coverage.md`](docs/instruction_coverage.md).
 
 `nop` is encoded as:
 
@@ -151,6 +157,41 @@ Full simulator output for each example is saved under:
 ```text
 build/examples/
 ```
+
+## Export Architectural State
+
+```bash
+make state ASM=asmFiles/forwarding_demo.s
+```
+
+This writes a stable JSON document to:
+
+```text
+build/architectural-state.json
+```
+
+The file contains the final PC, halt status, all 32 registers, and final bytes
+for memory locations written during execution. Fixed-width hexadecimal strings
+preserve exact 32-bit values and make output from separate models easy to
+compare.
+
+Choose a different output file:
+
+```bash
+make state ASM=asmFiles/load_store.s STATE_FILE=build/load_store-state.json
+```
+
+By default, the memory section contains automatically detected written ranges.
+To export specific memory windows instead, pass one or more ranges:
+
+```bash
+make state ASM=asmFiles/load_store.s \
+  STATE_ARGS="--state-memory=0x40:4 --state-memory=0x80:16"
+```
+
+The schema identifier is `rv32i-architectural-state-v1`. Its `pc` field is the
+next instruction address after the halt instruction; fetch remains stopped
+while the halt drains through the pipeline.
 
 ## Trace Pipeline Cycles
 
@@ -299,6 +340,18 @@ Print every memory location written by the program:
 This is the easiest option while learning because you do not need to know in
 advance where the program stored its result.
 
+Write machine-readable architectural state to a JSON file:
+
+```bash
+--dump-state=build/state.json
+```
+
+Select an explicit memory range for that state file (repeatable):
+
+```bash
+--state-memory=0x40:4
+```
+
 Check a final 32-bit memory value:
 
 ```bash
@@ -389,7 +442,10 @@ src/program_loader.cpp
 
 include/state_dump.hpp
 src/state_dump.cpp
-    Prints final register and memory state.
+    Human-readable dumps and canonical architectural-state JSON output.
+
+docs/instruction_coverage.md
+    Maps every implemented instruction to an executable assembly test.
 
 include/pipeline_trace.hpp
 src/pipeline_trace.cpp

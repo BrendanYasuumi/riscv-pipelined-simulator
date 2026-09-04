@@ -5,6 +5,8 @@ TEST_TARGET := simulator_tests
 ASM ?= asmFiles/store_word.s
 SIM_ARGS ?= --max-cycles=100000
 TRACE_ARGS ?= --trace --trace-limit=25
+STATE_FILE ?= build/architectural-state.json
+STATE_ARGS ?=
 
 CORE_SOURCES := \
 	src/cpu.cpp \
@@ -20,7 +22,7 @@ CORE_SOURCES := \
 SOURCES := main.cpp $(CORE_SOURCES)
 TEST_SOURCES := tests/simulator_tests.cpp $(CORE_SOURCES)
 
-.PHONY: all run trace examples test asm-test clean
+.PHONY: all run trace state examples test asm-test clean
 
 all: $(TARGET)
 
@@ -32,6 +34,9 @@ run: $(TARGET)
 
 trace: $(TARGET)
 	./scripts/run_asm.sh $(ASM) $(TRACE_ARGS) $(SIM_ARGS)
+
+state: $(TARGET)
+	./scripts/run_asm.sh $(ASM) --dump-state=$(STATE_FILE) $(STATE_ARGS) $(SIM_ARGS)
 
 examples: $(TARGET)
 	./scripts/run_examples.sh

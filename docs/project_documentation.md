@@ -84,6 +84,7 @@ halt
 register dumps
 memory dumps
 automatic written-memory dumps
+machine-readable architectural-state JSON
 C++ unit tests
 ```
 
@@ -126,6 +127,17 @@ Example:
 The simulator also tracks memory addresses written during execution. With
 `--dump-written-memory`, it prints those modified locations automatically, so
 assembly examples do not all need to store results at the same address.
+
+### Architectural-State Files
+
+`make state ASM=asmFiles/program.s` writes a deterministic JSON file containing
+the final PC, halt state, all 32 registers, and relevant memory bytes. Written
+memory is included automatically, or explicit regions can be selected with
+`STATE_ARGS="--state-memory=START:LENGTH"`.
+
+This format is separate from the human-readable terminal dump. A future golden
+reference runner can emit the same `rv32i-architectural-state-v1` schema, after
+which the two files can be compared field by field.
 
 ### Pipeline
 
@@ -209,7 +221,7 @@ src/program_loader.cpp
 
 include/state_dump.hpp
 src/state_dump.cpp
-    Prints final register state, manual memory windows, and written memory.
+    Prints human-readable state and canonical architectural-state JSON.
 
 include/pipeline_trace.hpp
 src/pipeline_trace.cpp
@@ -224,11 +236,16 @@ asmFiles/branch_equal.s
 asmFiles/count_loop.s
 asmFiles/hazard_demo.s
 asmFiles/forwarding_demo.s
+asmFiles/instruction_coverage.s
+asmFiles/control_flow_coverage.s
 asmFiles/program1.s
 asmFiles/program3.s
 asmFiles/search.s
     Assembly programs used to practice memory, bitwise logic, branches, loops,
-    stack usage, software multiplication, and search.
+    stack usage, software multiplication, search, and instruction coverage.
+
+docs/instruction_coverage.md
+    Audits every implemented instruction against an assembly-level test.
 
 scripts/run_asm.sh
     Assembly build/run script.

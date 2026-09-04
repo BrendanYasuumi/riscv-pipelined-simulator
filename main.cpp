@@ -1,6 +1,7 @@
 #include <array>
 #include <cstdint>
 #include <cstdlib>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <stdexcept>
@@ -37,6 +38,8 @@ struct CliOptions {
     bool dump_regs = false;
     bool dump_memory = false;
     bool dump_written_memory = false;
+    std::string dump_state_path;
+    std::vector<rv32i::MemoryDumpRange> state_memory_ranges;
     uint32_t dump_memory_start = 0;
     uint32_t dump_memory_length = 0;
     std::vector<MemoryExpectation> memory_expectations;
@@ -120,6 +123,25 @@ void parse_memory_dump_range(std::string_view value, CliOptions& options) {
     options.dump_memory_length = static_cast<uint32_t>(length);
 }
 
+rv32i::MemoryDumpRange parse_state_memory_range(std::string_view value) {
+    const std::size_t separator = value.find(':');
+    if (separator == std::string_view::npos) {
+        throw std::runtime_error(
+            "--state-memory must use START:LENGTH format");
+    }
+
+    const uint64_t start =
+        parse_u64_auto(value.substr(0, separator), "--state-memory start");
+    const uint64_t length =
+        parse_u64_auto(value.substr(separator + 1), "--state-memory length");
+
+    if (start > UINT32_MAX || length > UINT32_MAX) {
+        throw std::runtime_error("--state-memory values must fit in 32 bits");
+    }
+
+    return {static_cast<uint32_t>(start), static_cast<uint32_t>(length)};
+}
+
 void parse_memory_expectation(std::string_view value, CliOptions& options) {
     const std::size_t separator = value.find(':');
     if (separator == std::string_view::npos) {
@@ -162,6 +184,14 @@ CliOptions parse_cli(int argc, char* argv[]) {
             options.dump_regs = true;
         } else if (arg == "--dump-written-memory") {
             options.dump_written_memory = true;
+        } else if (arg.rfind("--dump-state=", 0) == 0) {
+            options.dump_state_path = std::string(arg.substr(13));
+            if (options.dump_state_path.empty()) {
+                throw std::runtime_error("--dump-state requires a file path");
+            }
+        } else if (arg.rfind("--state-memory=", 0) == 0) {
+            options.state_memory_ranges.push_back(
+                parse_state_memory_range(arg.substr(15)));
         } else if (arg.rfind("--dump-memory=", 0) == 0) {
             parse_memory_dump_range(arg.substr(14), options);
         } else if (arg.rfind("--expect-memory=", 0) == 0) {
@@ -180,6 +210,12 @@ CliOptions parse_cli(int argc, char* argv[]) {
         }
     }
 
+    if (!options.state_memory_ranges.empty() &&
+        options.dump_state_path.empty()) {
+        throw std::runtime_error(
+            "--state-memory requires --dump-state=FILE");
+    }
+
     return options;
 }
 
@@ -192,6 +228,8 @@ void print_usage(const char* executable) {
     std::cout << "  --dump-regs\n";
     std::cout << "  --dump-memory=START:LENGTH\n";
     std::cout << "  --dump-written-memory\n";
+    std::cout << "  --dump-state=FILE\n";
+    std::cout << "  --state-memory=START:LENGTH (repeatable)\n";
     std::cout << "  --expect-memory=ADDRESS:VALUE\n";
     std::cout << "  --trace\n";
     std::cout << "  --trace-start=N\n";
@@ -273,6 +311,28 @@ bool check_memory_expectations(const rv32i::CPU& cpu,
     return all_passed;
 }
 
+void write_architectural_state(const CliOptions& options,
+                               const rv32i::CPU& cpu) {
+    if (options.dump_state_path.empty()) {
+        return;
+    }
+
+    std::ofstream output(options.dump_state_path, std::ios::trunc);
+    if (!output) {
+        throw std::runtime_error("failed to open architectural-state file: " +
+                                 options.dump_state_path);
+    }
+
+    rv32i::print_architectural_state_json(
+        output, cpu, options.state_memory_ranges);
+    if (!output) {
+        throw std::runtime_error("failed to write architectural-state file: " +
+                                 options.dump_state_path);
+    }
+
+    std::cout << "\nArchitectural state: " << options.dump_state_path << '\n';
+}
+
 }  // namespace
 
 int main(int argc, char* argv[]) {
@@ -329,6 +389,7 @@ int main(int argc, char* argv[]) {
         if (options.dump_written_memory) {
             rv32i::print_written_memory_dump(std::cout, cpu);
         }
+        write_architectural_state(options, cpu);
 
         const bool memory_expectations_passed =
             check_memory_expectations(cpu, options.memory_expectations);
