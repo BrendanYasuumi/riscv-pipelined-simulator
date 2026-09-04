@@ -13,7 +13,7 @@ run_case() {
 
     local log_file="build/asm-tests/${name}.log"
 
-    printf "ASM memory test: %-14s" "$name"
+    printf "ASM memory test: %-16s" "$name"
     if ./scripts/run_asm.sh "$asm_file" --max-cycles="$max_cycles" "$@" \
         >"$log_file" 2>&1; then
         echo "PASS"
@@ -62,6 +62,11 @@ run_case "hazard_demo" \
     "asmFiles/hazard_demo.s" \
     1000 \
     --expect-memory=0x40:42
+
+run_case "forwarding_demo" \
+    "asmFiles/forwarding_demo.s" \
+    1000 \
+    --expect-memory=0x40:84
 
 run_case "multiply" \
     "asmFiles/program1.s" \

@@ -188,6 +188,24 @@ Because load data is not ready soon enough for the next instruction's execute
 stage, the hazard unit inserts one bubble. This is why the final stats include
 a load-use stall cycle.
 
+### ALU Forwarding Demo
+
+```bash
+make trace ASM=asmFiles/forwarding_demo.s TRACE_ARGS="--trace --trace-limit=10"
+```
+
+`forwarding_demo.s` intentionally runs two dependent ALU instructions:
+
+```asm
+addi x1, x0, 42
+add  x2, x1, x1
+```
+
+When `add` reaches EX, `addi` has not written `x1` back to the register file.
+The forwarding unit supplies the newer value directly from EX/MEM to both ALU
+inputs, producing `84` without a stall. The program stores that result at
+memory address `0x40`.
+
 ### Branch Control Hazard Demo
 
 ```bash

@@ -151,6 +151,11 @@ Forwarding sends a result from a later pipeline stage directly back to the
 execute stage. That lets dependent ALU instructions run without waiting for the
 register file to be updated.
 
+`asmFiles/forwarding_demo.s` demonstrates this with `addi x1, x0, 42`
+immediately followed by `add x2, x1, x1`. The forwarding unit sends the new
+value of `x1` from EX/MEM to both inputs of the `add`, so the result is 84 and
+the pipeline does not stall.
+
 ### Load-Use Stall
 
 A load-use hazard happens when one instruction loads from memory and the very
@@ -217,6 +222,8 @@ asmFiles/load_store.s
 asmFiles/bitwise.s
 asmFiles/branch_equal.s
 asmFiles/count_loop.s
+asmFiles/hazard_demo.s
+asmFiles/forwarding_demo.s
 asmFiles/program1.s
 asmFiles/program3.s
 asmFiles/search.s
