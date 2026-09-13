@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "branch_predictor.hpp"
 #include "config.hpp"
 
 namespace rv32i {
@@ -13,9 +14,12 @@ struct ExecutionStats {
     uint64_t clock_cycles = 0;
     uint64_t instruction_count = 0;
     uint64_t stall_cycles = 0;
+    uint64_t branch_predictions = 0;
+    uint64_t branch_mispredictions = 0;
 
     double cpi() const;
     double ipc() const;
+    double branch_prediction_accuracy() const;
 };
 
 struct MemoryWrite {
@@ -63,6 +67,10 @@ public:
     ExecutionStats& mutable_stats();
     void tick();
 
+    bool predict_branch(uint32_t branch_pc) const;
+    void update_branch_predictor(uint32_t branch_pc, bool actual_taken);
+    const BranchPredictor& branch_predictor() const;
+
     bool halted() const;
     void halt();
 
@@ -72,6 +80,7 @@ private:
     void record_memory_write(uint32_t address, uint32_t byte_count);
 
     Config config_;
+    BranchPredictor branch_predictor_;
     std::array<uint32_t, kNumRegisters> regs_{};
     uint32_t pc_ = kResetPC;
     bool halted_ = false;

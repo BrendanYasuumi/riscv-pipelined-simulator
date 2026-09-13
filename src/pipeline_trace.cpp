@@ -21,7 +21,10 @@ void print_latch(std::ostream& output,
                  const char* name,
                  bool valid,
                  uint32_t pc,
-                 uint32_t instruction) {
+                 uint32_t instruction,
+                 bool show_prediction = false,
+                 bool predicted_taken = false,
+                 uint32_t predicted_next_pc = 0) {
     output << "  " << std::left << std::setw(6) << name << " ";
 
     if (!valid) {
@@ -32,8 +35,17 @@ void print_latch(std::ostream& output,
     output << std::right << "pc=0x" << std::hex << std::setw(8)
            << std::setfill('0') << pc << " inst=0x" << std::setw(8)
            << instruction << std::dec
-           << std::setfill(' ') << " op=" << latch_name(valid, instruction)
-           << '\n';
+           << std::setfill(' ') << " op=" << latch_name(valid, instruction);
+
+    const DecodedInstruction decoded = decode_instruction(instruction);
+    if (show_prediction && decoded.control.branch) {
+        output << " prediction=" << (predicted_taken ? "taken" : "not-taken")
+               << " next-pc=0x" << std::hex << std::setw(8)
+               << std::setfill('0') << predicted_next_pc << std::dec
+               << std::setfill(' ');
+    }
+
+    output << '\n';
 }
 
 }  // namespace
@@ -46,12 +58,18 @@ void print_pipeline_trace(std::ostream& output,
                 "IF/ID",
                 pipeline.if_id.valid,
                 pipeline.if_id.pc,
-                pipeline.if_id.instruction);
+                pipeline.if_id.instruction,
+                true,
+                pipeline.if_id.predicted_taken,
+                pipeline.if_id.predicted_next_pc);
     print_latch(output,
                 "ID/EX",
                 pipeline.id_ex.valid,
                 pipeline.id_ex.pc,
-                pipeline.id_ex.instruction);
+                pipeline.id_ex.instruction,
+                true,
+                pipeline.id_ex.predicted_taken,
+                pipeline.id_ex.predicted_next_pc);
     print_latch(output,
                 "EX/MEM",
                 pipeline.ex_mem.valid,

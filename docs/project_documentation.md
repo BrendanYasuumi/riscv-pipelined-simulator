@@ -79,6 +79,8 @@ instruction decoding
 instruction execution
 forwarding
 load-use stalls
+2-bit saturating-counter branch prediction
+branch misprediction recovery
 branches and jumps
 halt
 register dumps
@@ -190,9 +192,19 @@ pipeline inserts one bubble.
 
 ### Branches And Jumps
 
-The simulator does not predict branches. It fetches the next
-sequential instruction first. If EX later discovers that a branch or jump is
-taken, the simulator redirects the PC and flushes younger wrong-path work.
+The default configuration predicts conditional branches with a 64-entry table
+of two-bit saturating counters. IF chooses either the PC-relative branch target
+or `PC + 4` and carries that predicted next PC through the pipeline. EX resolves
+the real condition, trains the counter, and flushes younger wrong-path work
+only when the predicted and actual next PCs differ.
+
+Each counter begins Weakly Not Taken. Taken outcomes increment toward Strongly
+Taken, while not-taken outcomes decrement toward Strongly Not Taken. Static
+always-taken and always-not-taken modes provide comparison baselines through
+the `--branch-predictor` CLI option.
+
+Direct and indirect jumps still redirect in EX and are not included in the
+conditional-branch prediction statistics.
 
 ## File Map
 
@@ -223,6 +235,10 @@ include/forwarding_unit.hpp
 src/forwarding_unit.cpp
     Chooses forwarded operands for EX.
 
+include/branch_predictor.hpp
+src/branch_predictor.cpp
+    Predicts conditional branches and trains two-bit saturating counters.
+
 include/stages.hpp
 src/stages.cpp
     Implements IF, ID, EX, MEM, WB, and the cycle runner.
@@ -243,6 +259,7 @@ asmFiles/store_word.s
     First assembly program.
 
 asmFiles/load_store.s
+asmFiles/arithmetic_smoke.s
 asmFiles/bitwise.s
 asmFiles/branch_equal.s
 asmFiles/count_loop.s
@@ -253,14 +270,18 @@ asmFiles/control_flow_coverage.s
 asmFiles/program1.s
 asmFiles/program3.s
 asmFiles/search.s
-    Assembly programs used to practice memory, bitwise logic, branches, loops,
-    stack usage, software multiplication, search, and instruction coverage.
+    Assembly programs used to practice memory, signed arithmetic, bitwise logic,
+    branches, loops, stack usage, software multiplication, search, and
+    instruction coverage.
 
 docs/instruction_coverage.md
     Audits every implemented instruction against an assembly-level test.
 
 docs/golden_reference.md
     Documents differential testing against Spike.
+
+docs/branch_prediction.md
+    Documents prediction, counter training, recovery, and comparison metrics.
 
 tests/golden/
     Relocatable assembly fixtures and their comparison manifest.
@@ -277,13 +298,3 @@ linker/rv32i.ld
 tests/simulator_tests.cpp
     Unit tests for simulator internals.
 ```
-
-## Interview Talking Point
-
-The clean way to describe the project:
-
-> I built a C++ RV32I simulator that runs real assembly programs by using a
-> standard RISC-V assembler to produce a raw binary. The simulator loads that
-> binary into simulated memory, starts at PC zero, advances a five-stage
-> pipeline cycle by cycle, handles basic hazards, and prints final registers and
-> memory so I can verify the program result.

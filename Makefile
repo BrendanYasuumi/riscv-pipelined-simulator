@@ -10,6 +10,7 @@ STATE_FILE ?= build/architectural-state.json
 STATE_ARGS ?=
 
 CORE_SOURCES := \
+	src/branch_predictor.cpp \
 	src/cpu.cpp \
 	src/decoder.cpp \
 	src/forwarding_unit.cpp \
@@ -22,9 +23,9 @@ CORE_SOURCES := \
 
 SOURCES := main.cpp $(CORE_SOURCES)
 TEST_SOURCES := tests/simulator_tests.cpp $(CORE_SOURCES)
-SPIKE_ADAPTER_SOURCES := tools/spike_state_adapter.cpp src/cpu.cpp src/state_dump.cpp
+SPIKE_ADAPTER_SOURCES := tools/spike_state_adapter.cpp src/branch_predictor.cpp src/cpu.cpp src/state_dump.cpp
 
-.PHONY: all run trace state examples test asm-test golden clean
+.PHONY: all run trace state examples test asm-test asm-test-failure-demo golden clean
 
 all: $(TARGET)
 
@@ -54,6 +55,11 @@ test: $(TEST_TARGET)
 
 asm-test: $(TARGET)
 	./scripts/asm_memory_tests.sh
+
+asm-test-failure-demo: $(TARGET)
+	@echo "Intentional failure: arithmetic_smoke writes 7, but this command expects 999."
+	./scripts/run_asm.sh asmFiles/arithmetic_smoke.s \
+		--max-cycles=1000 --expect-memory=0x40:999
 
 golden: $(TARGET) $(SPIKE_ADAPTER)
 	./scripts/run_spike_golden.sh

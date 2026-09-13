@@ -32,7 +32,8 @@ state.
 - Pipeline registers between stages
 - Register forwarding for normal ALU dependencies
 - Load-use stalls
-- Branch and jump redirects
+- 64-entry 2-bit saturating-counter branch predictor
+- Branch misprediction recovery and jump redirects
 - Final register and memory dumps
 - `ecall` / `ebreak` halt handling
 
@@ -263,8 +264,29 @@ sw   x4, 0(x3)
 ```
 
 The `ecall` after the branch is the wrong-path instruction. Since the branch is
-taken, the simulator redirects the PC in the execute stage and flushes that
-wrong-path instruction before it can retire.
+taken while its counter initially predicts not taken, the simulator detects a
+misprediction in EX, redirects the PC, and flushes that wrong-path instruction
+before it can retire.
+
+### Branch Predictor Comparison
+
+The default predictor uses 64 two-bit counters initialized to Weakly Not Taken.
+Compare it with the static not-taken baseline on the five-iteration loop:
+
+```bash
+make run ASM=asmFiles/count_loop.s \
+  SIM_ARGS="--max-cycles=1000 --branch-predictor=two-bit"
+
+make run ASM=asmFiles/count_loop.s \
+  SIM_ARGS="--max-cycles=1000 --branch-predictor=not-taken"
+```
+
+The two runs produce the same architectural result. The dynamic predictor
+learns the repeated taken outcome and reduces this example from four
+mispredictions and 23 cycles to two mispredictions and 21 cycles.
+
+See [`docs/branch_prediction.md`](docs/branch_prediction.md) for the state
+machine, pipeline integration, recovery behavior, and comparison results.
 
 ## Run Tests
 
@@ -304,6 +326,15 @@ Example:
 
 This means: after the program finishes, the 32-bit word at memory address
 `0x10` must equal decimal `24`.
+
+To preview a real assertion failure without making the normal CI suite fail:
+
+```bash
+make asm-test-failure-demo
+```
+
+This target deliberately checks for an incorrect value, prints the expected
+and actual words, and exits with a nonzero status. It is not run by CI.
 
 ## Compare Against Spike
 
@@ -408,6 +439,14 @@ Limit execution if a program gets stuck:
 --max-cycles=1000
 ```
 
+Select the branch predictor (`two-bit` is the default):
+
+```bash
+--branch-predictor=not-taken
+--branch-predictor=taken
+--branch-predictor=two-bit
+```
+
 Load a raw binary at a nonzero simulated address:
 
 ```bash
@@ -464,6 +503,10 @@ include/forwarding_unit.hpp
 src/forwarding_unit.cpp
     Forwards newer values into the execute stage.
 
+include/branch_predictor.hpp
+src/branch_predictor.cpp
+    Implements static baselines and a 64-entry 2-bit saturating predictor.
+
 include/stages.hpp
 src/stages.cpp
     Implements IF, ID, EX, MEM, WB, and one-cycle pipeline advancement.
@@ -481,6 +524,9 @@ docs/instruction_coverage.md
 
 docs/golden_reference.md
     Explains the Spike differential-testing workflow.
+
+docs/branch_prediction.md
+    Explains predictor state, training, misprediction recovery, and metrics.
 
 tools/spike_state_adapter.cpp
     Converts Spike debug output into the canonical state schema.

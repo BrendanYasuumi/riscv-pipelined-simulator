@@ -21,6 +21,15 @@ double ExecutionStats::ipc() const {
            static_cast<double>(clock_cycles);
 }
 
+double ExecutionStats::branch_prediction_accuracy() const {
+    if (branch_predictions == 0) {
+        return 0.0;
+    }
+
+    return static_cast<double>(branch_predictions - branch_mispredictions) /
+           static_cast<double>(branch_predictions);
+}
+
 CPU::CPU(std::size_t memory_size_bytes, Config config)
     : config_(config), memory_(memory_size_bytes, 0) {}
 
@@ -30,6 +39,7 @@ void CPU::reset() {
     halted_ = false;
     memory_writes_.clear();
     stats_ = ExecutionStats{};
+    branch_predictor_.reset();
 }
 
 const Config& CPU::config() const {
@@ -163,6 +173,21 @@ ExecutionStats& CPU::mutable_stats() {
 
 void CPU::tick() {
     ++stats_.clock_cycles;
+}
+
+bool CPU::predict_branch(uint32_t branch_pc) const {
+    return branch_predictor_.predict(branch_pc,
+                                     config_.branch_predictor_type);
+}
+
+void CPU::update_branch_predictor(uint32_t branch_pc, bool actual_taken) {
+    branch_predictor_.update(branch_pc,
+                             actual_taken,
+                             config_.branch_predictor_type);
+}
+
+const BranchPredictor& CPU::branch_predictor() const {
+    return branch_predictor_;
 }
 
 bool CPU::halted() const {

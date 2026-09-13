@@ -265,6 +265,68 @@ void test_taken_branch_flush_execution() {
     assert(cpu.read_reg(1) == 2);
 }
 
+void test_two_bit_saturating_counter_transitions() {
+    rv32i::BranchPredictor predictor;
+    constexpr uint32_t branch_pc = 0x40;
+    constexpr rv32i::BranchPredictorType type =
+        rv32i::BranchPredictorType::TwoBitSaturating;
+
+    assert(predictor.counter_state(branch_pc) ==
+           rv32i::SaturatingCounterState::WeaklyNotTaken);
+    assert(!predictor.predict(branch_pc, type));
+    assert(!predictor.predict(
+        branch_pc, rv32i::BranchPredictorType::AlwaysNotTaken));
+    assert(predictor.predict(
+        branch_pc, rv32i::BranchPredictorType::AlwaysTaken));
+
+    predictor.update(branch_pc, true, type);
+    assert(predictor.counter_state(branch_pc) ==
+           rv32i::SaturatingCounterState::WeaklyTaken);
+    assert(predictor.predict(branch_pc, type));
+
+    predictor.update(branch_pc, true, type);
+    predictor.update(branch_pc, true, type);
+    assert(predictor.counter_state(branch_pc) ==
+           rv32i::SaturatingCounterState::StronglyTaken);
+
+    predictor.update(branch_pc, false, type);
+    predictor.update(branch_pc, false, type);
+    predictor.update(branch_pc, false, type);
+    assert(predictor.counter_state(branch_pc) ==
+           rv32i::SaturatingCounterState::StronglyNotTaken);
+    assert(!predictor.predict(branch_pc, type));
+}
+
+void test_two_bit_predictor_learns_loop_branch() {
+    const std::vector<uint32_t> program{
+        encode_i(5, 0, 0x0, 1),       // addi x1, x0, 5
+        encode_i(-1, 1, 0x0, 1),      // addi x1, x1, -1
+        encode_b(-4, 0, 1, 0x1),      // bne x1, x0, -4
+        encode_i(9, 0, 0x0, 2),       // addi x2, x0, 9
+        0x00000073u,                  // ecall/halt
+    };
+
+    const rv32i::CPU dynamic = run_program_until_halt(program);
+
+    rv32i::Config static_config{};
+    static_config.branch_predictor_type =
+        rv32i::BranchPredictorType::AlwaysNotTaken;
+    const rv32i::CPU static_not_taken =
+        run_program_until_halt(program, static_config);
+
+    assert(dynamic.read_reg(1) == 0);
+    assert(dynamic.read_reg(2) == 9);
+    assert(dynamic.stats().branch_predictions == 5);
+    assert(dynamic.stats().branch_mispredictions == 2);
+    assert(dynamic.branch_predictor().counter_state(8) ==
+           rv32i::SaturatingCounterState::WeaklyTaken);
+
+    assert(static_not_taken.stats().branch_predictions == 5);
+    assert(static_not_taken.stats().branch_mispredictions == 4);
+    assert(dynamic.stats().clock_cycles <
+           static_not_taken.stats().clock_cycles);
+}
+
 void test_bne_execution_with_forwarded_operand() {
     const rv32i::CPU cpu = run_program({
         encode_i(1, 0, 0x0, 1),           // addi x1, x0, 1
@@ -525,6 +587,8 @@ int main() {
     test_load_store_execution();
     test_lui_and_auipc_execution();
     test_taken_branch_flush_execution();
+    test_two_bit_saturating_counter_transitions();
+    test_two_bit_predictor_learns_loop_branch();
     test_bne_execution_with_forwarded_operand();
     test_jal_execution();
     test_jalr_execution();

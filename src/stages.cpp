@@ -228,6 +228,12 @@ void stage_EX(CPU& cpu, PipelineRegisters& pipeline, StageControl& control) {
                          : id_ex.pc + 4;
         next.branch_taken = actual_taken;
         next.branch_target = actual_target;
+
+        ++cpu.mutable_stats().branch_predictions;
+        if (id_ex.predicted_next_pc != actual_target) {
+            ++cpu.mutable_stats().branch_mispredictions;
+        }
+        cpu.update_branch_predictor(id_ex.pc, actual_taken);
     } else if (id_ex.control.jump) {
         control_flow_resolved = true;
         actual_taken = true;
@@ -238,7 +244,7 @@ void stage_EX(CPU& cpu, PipelineRegisters& pipeline, StageControl& control) {
         next.branch_target = actual_target;
     }
 
-    if (control_flow_resolved && actual_taken) {
+    if (control_flow_resolved && id_ex.predicted_next_pc != actual_target) {
         cpu.set_pc(actual_target);
         control.flush_id_ex = true;
     }
@@ -275,6 +281,8 @@ void stage_ID(CPU& cpu,
     next.valid = true;
     next.pc = if_id.pc;
     next.instruction = if_id.instruction;
+    next.predicted_taken = if_id.predicted_taken;
+    next.predicted_next_pc = if_id.predicted_next_pc;
     next.format = decoded.format;
     next.rd = decoded.rd;
     next.rs1 = decoded.rs1;
@@ -306,8 +314,18 @@ void stage_IF(CPU& cpu, PipelineRegisters& pipeline) {
     next.valid = true;
     next.pc = pc;
     next.instruction = cpu.read_u32(pc);
+    next.predicted_next_pc = pc + 4;
 
-    cpu.set_pc(pc + 4);
+    const DecodedInstruction decoded = decode_instruction(next.instruction);
+    if (is_valid_instruction(decoded) && decoded.control.branch) {
+        next.predicted_taken = cpu.predict_branch(pc);
+        if (next.predicted_taken) {
+            next.predicted_next_pc =
+                pc + static_cast<uint32_t>(decoded.immediate);
+        }
+    }
+
+    cpu.set_pc(next.predicted_next_pc);
     pipeline.next_if_id = next;
 }
 

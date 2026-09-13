@@ -23,6 +23,38 @@ run assembly program:
         print memory locations written by the program
 ```
 
+## Assembly Memory Regression
+
+```text
+make asm-test:
+    build the simulator if its sources changed
+
+    for each case declared in scripts/asm_memory_tests.sh:
+        assemble and link the case
+        convert its ELF into a flat binary
+        run the binary with its maximum cycle limit
+        check every expected address:value pair
+
+        if every expected word matches:
+            print PASS
+        otherwise:
+            print FAIL, show the test log, and stop with a nonzero exit status
+
+GitHub Actions:
+    check out the repository
+    install RISC-V binutils
+    build the simulator
+    run make test
+    run make asm-test
+    mark the workflow failed if any command returns a nonzero exit status
+
+make asm-test-failure-demo:
+    run arithmetic_smoke with an intentionally incorrect expected value
+    print the expected and actual memory words
+    return a nonzero exit status, matching what CI treats as a failure
+    do not include this demonstration target in the normal CI workflow
+```
+
 ## CPU State
 
 ```text
@@ -36,6 +68,11 @@ CPU:
         clock cycles
         instructions retired
         stall cycles
+        branch predictions
+        branch mispredictions
+
+    branch predictor:
+        64 two-bit saturating counters
 ```
 
 ```text
@@ -150,7 +187,9 @@ run_pipeline_cycle:
         apply forwarding if needed
         run ALU
         evaluate branch or jump
-        redirect PC and flush younger work if control flow is taken
+        compare actual next PC with predicted next PC
+        train predictor for a conditional branch
+        redirect PC and flush younger work if prediction was wrong
         write next EX/MEM latch
 
     hazard unit:
@@ -170,8 +209,12 @@ run_pipeline_cycle:
 
     IF:
         fetch instruction at PC
+        if instruction is a conditional branch:
+            consult predictor using branch PC
+            choose branch target or PC + 4
+            save prediction in IF/ID
         write next IF/ID latch
-        PC = PC + 4
+        PC = predicted next PC
 
     commit:
         IF/ID  = next IF/ID
@@ -274,19 +317,35 @@ if load-use stall:
 ## Branches And Jumps
 
 ```text
-in IF:
-    fetch instruction at PC
-    PC = PC + 4
+predict conditional branch in IF:
+    index = (branch PC >> 2) modulo 64
+    state = counter[index]
 
-in EX:
-    if branch condition is true:
-        PC = branch target
+    if state is Weakly Taken or Strongly Taken:
+        predicted taken = true
+        predicted next PC = branch target
+    else:
+        predicted taken = false
+        predicted next PC = PC + 4
+
+    carry predicted direction and next PC through IF/ID and ID/EX
+
+resolve conditional branch in EX:
+    evaluate condition using forwarded operands
+    actual next PC = branch target if taken, otherwise PC + 4
+    branch_predictions += 1
+
+    if predicted next PC does not equal actual next PC:
+        branch_mispredictions += 1
+        PC = actual next PC
         flush younger instruction
 
-    if jump:
-        PC = jump target
-        flush younger instruction
+    if actual outcome is taken:
+        increment counter, saturating at Strongly Taken
+    else:
+        decrement counter, saturating at Strongly Not Taken
+
+resolve jump in EX:
+    compute direct or indirect target
+    redirect PC and flush if target differs from sequential prediction
 ```
-
-This simulator does not use branch prediction. Taken control flow is handled by
-redirecting once the branch or jump reaches EX.

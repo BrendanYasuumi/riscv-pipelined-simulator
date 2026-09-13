@@ -36,6 +36,12 @@ run_case "load_store" \
     1000 \
     --expect-memory=0x40:42
 
+run_case "arithmetic_smoke" \
+    "asmFiles/arithmetic_smoke.s" \
+    1000 \
+    --expect-memory=0x40:7 \
+    --expect-memory=0x44:13
+
 run_case "bitwise" \
     "asmFiles/bitwise.s" \
     1000 \

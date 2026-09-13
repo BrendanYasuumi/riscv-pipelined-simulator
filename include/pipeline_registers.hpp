@@ -74,6 +74,8 @@ struct IFIDRegister {
     bool valid = false;
     uint32_t pc = 0;
     uint32_t instruction = 0;
+    bool predicted_taken = false;
+    uint32_t predicted_next_pc = 0;
 
     void clear() {
         *this = IFIDRegister{};
@@ -84,6 +86,8 @@ struct IDEXRegister {
     bool valid = false;
     uint32_t pc = 0;
     uint32_t instruction = 0;
+    bool predicted_taken = false;
+    uint32_t predicted_next_pc = 0;
 
     InstructionFormat format = InstructionFormat::Unknown;
     uint8_t rd = 0;

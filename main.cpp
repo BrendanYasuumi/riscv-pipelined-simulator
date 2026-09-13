@@ -144,6 +144,22 @@ rv32i::MemoryDumpRange parse_state_memory_range(std::string_view value) {
     return {static_cast<uint32_t>(start), static_cast<uint32_t>(length)};
 }
 
+rv32i::BranchPredictorType parse_branch_predictor_type(
+    std::string_view value) {
+    if (value == "not-taken") {
+        return rv32i::BranchPredictorType::AlwaysNotTaken;
+    }
+    if (value == "taken") {
+        return rv32i::BranchPredictorType::AlwaysTaken;
+    }
+    if (value == "two-bit") {
+        return rv32i::BranchPredictorType::TwoBitSaturating;
+    }
+
+    throw std::runtime_error(
+        "--branch-predictor must be not-taken, taken, or two-bit");
+}
+
 void parse_memory_expectation(std::string_view value, CliOptions& options) {
     const std::size_t separator = value.find(':');
     if (separator == std::string_view::npos) {
@@ -200,6 +216,9 @@ CliOptions parse_cli(int argc, char* argv[]) {
             parse_memory_expectation(arg.substr(16), options);
         } else if (arg.rfind("--max-cycles=", 0) == 0) {
             options.max_cycles = parse_u64(arg.substr(13), "--max-cycles");
+        } else if (arg.rfind("--branch-predictor=", 0) == 0) {
+            options.config.branch_predictor_type =
+                parse_branch_predictor_type(arg.substr(19));
         } else if (arg.rfind("--load-address=", 0) == 0) {
             const uint64_t address =
                 parse_u64_auto(arg.substr(15), "--load-address");
@@ -242,6 +261,7 @@ void print_usage(const char* executable) {
               << " [program.bin] [options]\n\n";
     std::cout << "Options:\n";
     std::cout << "  --max-cycles=N\n";
+    std::cout << "  --branch-predictor=not-taken|taken|two-bit\n";
     std::cout << "  --load-address=ADDRESS\n";
     std::cout << "  --memory-size=BYTES\n";
     std::cout << "  --retire-count=N\n";
@@ -276,6 +296,10 @@ void print_run_options(const CliOptions& options) {
     std::cout << "  Load address:     0x" << std::hex << options.load_address
               << std::dec << '\n';
     std::cout << "  Memory size:      " << options.memory_size << " bytes\n";
+    std::cout << "  Branch predictor: "
+              << rv32i::branch_predictor_type_name(
+                     options.config.branch_predictor_type)
+              << '\n';
 }
 
 bool should_print_trace(const CliOptions& options,
@@ -306,6 +330,13 @@ void print_stats(const rv32i::CPU& cpu) {
     std::cout << "  CPI:                   " << stats.cpi() << '\n';
     std::cout << "  IPC:                   " << stats.ipc() << '\n';
     std::cout << "  Stall cycles:          " << stats.stall_cycles << '\n';
+    std::cout << "  Branch predictions:    " << stats.branch_predictions << '\n';
+    std::cout << "  Branch mispredictions: " << stats.branch_mispredictions
+              << '\n';
+    std::cout << "  Prediction accuracy:   " << std::fixed
+              << std::setprecision(2)
+              << stats.branch_prediction_accuracy() * 100.0 << "%\n"
+              << std::defaultfloat;
     std::cout << "  Halted:                "
               << (cpu.halted() ? "yes" : "no") << '\n';
 }
