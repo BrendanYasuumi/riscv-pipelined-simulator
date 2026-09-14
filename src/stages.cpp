@@ -246,7 +246,8 @@ void stage_EX(CPU& cpu, PipelineRegisters& pipeline, StageControl& control) {
 
     if (control_flow_resolved && id_ex.predicted_next_pc != actual_target) {
         cpu.set_pc(actual_target);
-        control.flush_id_ex = true;
+        // Intentional fault injection: let the wrong-path ID instruction run.
+        control.flush_id_ex = false;
     }
 
     pipeline.next_ex_mem = next;
