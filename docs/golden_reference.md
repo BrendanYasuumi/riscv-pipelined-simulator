@@ -48,7 +48,8 @@ Successful output looks like:
 Spike golden test: store_word             PASS (diff = 0)
 Spike golden test: instruction_coverage   PASS (diff = 0)
 Spike golden test: control_flow_coverage  PASS (diff = 0)
-Passed 3 Spike golden test(s).
+Spike golden test: add                    PASS (diff = 0)
+Passed 4 Spike golden test(s).
 ```
 
 `diff = 0` means both models produced byte-for-byte identical canonical state:
@@ -59,6 +60,22 @@ Passed 3 Spike golden test(s).
 - Every declared memory comparison range
 
 Generated files are stored under `build/golden/<test-name>/`.
+
+## GitHub Actions
+
+The `Spike Golden` CI job runs independently from the C++ and assembly-memory
+tests. On a fresh Ubuntu runner it:
+
+1. Installs the RISC-V binary utilities and Spike build dependencies.
+2. Restores a cached Spike installation when available.
+3. Otherwise builds a pinned Spike commit for reproducibility.
+4. Builds the simulator and `spike_state_adapter`.
+5. Runs `make golden`.
+
+If either model fails to run or their canonical JSON files differ, the script
+returns a nonzero exit status. GitHub attaches a failed status check to that
+commit or pull request. Keeping this as a separate job ensures golden testing
+still runs when an unrelated unit-test job fails.
 
 ## Why Programs Start At 0x10000
 

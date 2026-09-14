@@ -33,3 +33,51 @@ jobs:
 
       - name: Run assembly memory tests
         run: make asm-test
+
+  spike-golden:
+    name: Spike Golden
+    runs-on: ubuntu-latest
+    env:
+      SPIKE_COMMIT: 1e05ddac3a6c351bfc0aeed0cf3a68940e7200ab
+      SPIKE_PREFIX: ${{ github.workspace }}/.cache/spike
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            binutils-riscv64-unknown-elf \
+            device-tree-compiler \
+            libboost-regex-dev \
+            libboost-system-dev
+
+      - name: Restore cached Spike installation
+        id: spike-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.SPIKE_PREFIX }}
+          key: spike-ubuntu-${{ env.SPIKE_COMMIT }}
+
+      - name: Build pinned Spike
+        if: steps.spike-cache.outputs.cache-hit != 'true'
+        run: |
+          git clone https://github.com/riscv-software-src/riscv-isa-sim.git \
+            "$RUNNER_TEMP/riscv-isa-sim"
+          git -C "$RUNNER_TEMP/riscv-isa-sim" checkout "$SPIKE_COMMIT"
+          mkdir -p "$RUNNER_TEMP/riscv-isa-sim/build"
+          cd "$RUNNER_TEMP/riscv-isa-sim/build"
+          ../configure --prefix="$SPIKE_PREFIX"
+          make -j2
+          make install
+
+      - name: Add Spike to PATH
+        run: echo "$SPIKE_PREFIX/bin" >> "$GITHUB_PATH"
+
+      - name: Build simulator and adapter
+        run: make
+
+      - name: Run Spike differential tests
+        run: make golden

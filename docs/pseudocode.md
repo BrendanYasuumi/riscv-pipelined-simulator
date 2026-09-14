@@ -41,12 +41,21 @@ make asm-test:
             print FAIL, show the test log, and stop with a nonzero exit status
 
 GitHub Actions:
-    check out the repository
-    install RISC-V binutils
-    build the simulator
-    run make test
-    run make asm-test
-    mark the workflow failed if any command returns a nonzero exit status
+    build-and-test job:
+        check out the repository
+        install RISC-V binutils
+        build the simulator
+        run make test
+        run make asm-test
+
+    Spike-golden job, running independently:
+        check out the repository
+        install RISC-V binutils and Spike build dependencies
+        restore cached pinned Spike, or build it when not cached
+        build the simulator and Spike state adapter
+        run make golden
+
+    mark either job failed if one of its commands returns a nonzero exit status
 
 make asm-test-failure-demo:
     run arithmetic_smoke with an intentionally incorrect expected value

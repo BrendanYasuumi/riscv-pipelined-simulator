@@ -138,9 +138,9 @@ the final PC, halt state, all 32 registers, and relevant memory bytes. Written
 memory is included automatically, or explicit regions can be selected with
 `STATE_ARGS="--state-memory=START:LENGTH"`.
 
-This format is separate from the human-readable terminal dump. A future golden
-reference runner emits the same `rv32i-architectural-state-v1` schema, after
-which the two files are compared exactly.
+This format is separate from the human-readable terminal dump. The Spike golden
+reference adapter emits the same `rv32i-architectural-state-v1` schema so the
+two files can be compared exactly.
 
 ### Spike Golden Reference
 
@@ -148,6 +148,10 @@ which the two files are compared exactly.
 simulator and Spike. The harness compares all registers, normalized final PC,
 halt status, and selected memory. `PASS (diff = 0)` means the two independent
 models produced identical architectural state.
+
+GitHub Actions runs this comparison in an independent `Spike Golden` job using
+a pinned, cached Spike build. A mismatch returns a nonzero exit status and
+marks the commit or pull request with a failed check.
 
 Golden programs run at `0x10000` because Spike reserves low memory for internal
 devices. The simulator's `--load-address` and `--memory-size` options let it

@@ -350,6 +350,11 @@ The golden suite currently compares all 32 registers, final PC, halt state,
 and declared memory regions for store, instruction, and control-flow coverage.
 A passing test reports `PASS (diff = 0)`.
 
+GitHub Actions runs the golden suite as an independent `Spike Golden` job. A
+state mismatch prints a unified JSON diff and gives the commit or pull request
+a failed status check without preventing the regular unit-test job from
+finishing.
+
 See [`docs/golden_reference.md`](docs/golden_reference.md) for installation,
 design rationale, generated files, and instructions for adding a test.
 
