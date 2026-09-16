@@ -346,9 +346,15 @@ This assembles relocatable RV32I programs, runs the same program image on this
 simulator and Spike, converts both final states to the
 `rv32i-architectural-state-v1` JSON schema, and performs an exact comparison.
 
-The golden suite currently compares all 32 registers, final PC, halt state,
-and declared memory regions for store, instruction, and control-flow coverage.
-A passing test reports `PASS (diff = 0)`.
+The golden suite runs 14 programs covering arithmetic, bitwise operations,
+shifts, signed and unsigned comparisons, memory widths, loops, Fibonacci,
+software multiplication, function calls, hazards, and control flow. It compares
+all 32 registers, final PC, halt state, and declared memory regions. A passing
+test reports `PASS (diff = 0)`.
+
+Golden tests do not contain hardcoded expected memory values. A case only names
+the memory region that matters; Spike supplies the expected architectural state
+by independently executing the same program.
 
 GitHub Actions runs the golden suite as an independent `Spike Golden` job. A
 state mismatch prints a unified JSON diff and gives the commit or pull request

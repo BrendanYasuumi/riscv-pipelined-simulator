@@ -49,7 +49,17 @@ Spike golden test: store_word             PASS (diff = 0)
 Spike golden test: instruction_coverage   PASS (diff = 0)
 Spike golden test: control_flow_coverage  PASS (diff = 0)
 Spike golden test: add                    PASS (diff = 0)
-Passed 4 Spike golden test(s).
+Spike golden test: arithmetic             PASS (diff = 0)
+Spike golden test: bitwise                PASS (diff = 0)
+Spike golden test: shifts                 PASS (diff = 0)
+Spike golden test: comparisons            PASS (diff = 0)
+Spike golden test: memory_widths          PASS (diff = 0)
+Spike golden test: loop_sum               PASS (diff = 0)
+Spike golden test: fibonacci              PASS (diff = 0)
+Spike golden test: software_multiply      PASS (diff = 0)
+Spike golden test: function_call          PASS (diff = 0)
+Spike golden test: hazard_chain           PASS (diff = 0)
+Passed 14 Spike golden test(s).
 ```
 
 `diff = 0` means both models produced byte-for-byte identical canonical state:
@@ -117,6 +127,11 @@ The fields are:
 name | assembly source | halt symbol | memory symbol:length | max cycles
 ```
 
+The manifest selects where to compare, but it does not state what values should
+be there. Spike executes the program to produce the reference values, and the
+harness checks the simulator's values against them. This avoids manually
+calculating and hardcoding an expected memory result for each program.
+
 Memory lengths must currently be positive multiples of four because Spike's
 debug interface returns one RV32 word per memory command.
 
@@ -146,3 +161,8 @@ linker/rv32i_spike.ld
 3. End at `golden_halt` with `ebreak`.
 4. Add one line to `tests/golden/cases.tsv`.
 5. Run `make golden` and inspect both JSON files if the diff is nonzero.
+
+The suite currently contains 14 programs. The focused cases exercise
+arithmetic, bitwise operations, shifts, comparisons, memory access widths,
+loops, Fibonacci generation, software multiplication, function calls,
+dependency hazards, and control flow.

@@ -160,6 +160,8 @@ for each golden test case:
     link ELF at address 0x10000
     convert ELF payload to raw binary
     resolve halt and memory symbols from ELF
+    use symbols and lengths to select comparison regions
+    do not hardcode expected memory values
 
     run raw binary on pipelined simulator at address 0x10000
     export simulator-state.json

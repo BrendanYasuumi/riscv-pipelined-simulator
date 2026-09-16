@@ -149,6 +149,12 @@ simulator and Spike. The harness compares all registers, normalized final PC,
 halt status, and selected memory. `PASS (diff = 0)` means the two independent
 models produced identical architectural state.
 
+The 14 golden programs cover arithmetic, bitwise operations, shifts, signed
+and unsigned comparisons, memory widths, loops, Fibonacci, software
+multiplication, function calls, dependency hazards, and control flow. Test
+cases declare which memory region to compare, not its expected contents; Spike
+produces the reference values by executing the same program.
+
 GitHub Actions runs this comparison in an independent `Spike Golden` job using
 a pinned, cached Spike build. A mismatch returns a nonzero exit status and
 marks the commit or pull request with a failed check.

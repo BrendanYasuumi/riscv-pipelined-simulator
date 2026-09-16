@@ -3,3 +3,13 @@ store_word|tests/golden/programs/store_word.s|golden_halt|result:4|1000
 instruction_coverage|tests/golden/programs/instruction_coverage.s|golden_halt|result_signature:112|2000
 control_flow_coverage|tests/golden/programs/control_flow_coverage.s|golden_halt|control_results:12|2000
 add|tests/golden/programs/add.s|golden_halt|result:4|1000
+arithmetic|tests/golden/programs/arithmetic.s|golden_halt|arithmetic_results:12|1000
+bitwise|tests/golden/programs/bitwise.s|golden_halt|bitwise_results:24|1000
+shifts|tests/golden/programs/shifts.s|golden_halt|shift_results:24|1000
+comparisons|tests/golden/programs/comparisons.s|golden_halt|comparison_results:16|1000
+memory_widths|tests/golden/programs/memory_widths.s|golden_halt|memory_results:24|1000
+loop_sum|tests/golden/programs/loop_sum.s|golden_halt|loop_sum_result:4|2000
+fibonacci|tests/golden/programs/fibonacci.s|golden_halt|fibonacci_results:40|2000
+software_multiply|tests/golden/programs/software_multiply.s|golden_halt|multiply_result:4|2000
+function_call|tests/golden/programs/function_call.s|golden_halt|function_results:8|1000
+hazard_chain|tests/golden/programs/hazard_chain.s|golden_halt|hazard_results:12|1000
